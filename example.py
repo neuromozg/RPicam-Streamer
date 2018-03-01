@@ -51,14 +51,14 @@ class FrameHandler(threading.Thread):
             
         print('Frame handler stopped')
 
-    def stop(self):
+    def stop(self): #остановка потока
         self._stopped.set()
         if not self._newFrameEvent.is_set(): #если кадр не обрабатывается
             self._frame = None
             self._newFrameEvent.set() 
         self.join()
 
-    def setFrame(self, frame):
+    def setFrame(self, frame): #задание нового кадра для обработки
         if not self._newFrameEvent.is_set(): #если обработчик готов принять новый кадр
             self._frame = frame
             self._newFrameEvent.set() #задали событие
