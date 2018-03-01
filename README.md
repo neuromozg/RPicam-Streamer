@@ -47,7 +47,7 @@ sudo pip3 install psutil
 ```
 sudo raspi-config
 ```
-В меню выбрать `Interfacing Options -> Camera -> Yes
+В меню выбрать `Interfacing Options -> Camera -> Yes`
 
 ## Подключение библиотеки в Python3
 ```
