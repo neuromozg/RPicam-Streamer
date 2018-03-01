@@ -43,8 +43,8 @@ sudo pip3 install psutil
 
 ## Подключение камеры
 
-Камеру подключать на обесточенной Raspberry Pi. Для работы с камерой Raspberry Pi необходимо её включить запустив
+**Шлейф от камеры подсоединять к разъему только на обесточенной Raspberry Pi.** Для работы с камерой Raspberry Pi необходимо её включить запустив
 ```
 sudo raspi-config
 ```
-В меню необходимо выбрать `Interfacing Options -> Camera -> Yes`
+В меню выбрать `Interfacing Options -> Camera -> Yes`

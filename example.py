@@ -20,12 +20,14 @@ FRAMERATE = 30
 IP = '173.1.0.95' #IP адрес куда отправляем видео
 RTP_PORT = 5000 #порт отправки RTP видео
 
+#поток обработки кадров
+#параметр 
 class FrameHandler(threading.Thread):
     
-    def __init__(self, camera):
-        threading.Thread.__init__(self)
+    def __init__(self, stream):
+        super(FrameHandler, self).__init__()
         self.daemon = True
-        self.camera = camera
+        self.rpiCamStream = stream
         self._frame = None
         self._frameCount = 0
         self._stopped = threading.Event() #событие для остановки потока
@@ -34,7 +36,7 @@ class FrameHandler(threading.Thread):
     def run(self):
         print('Frame handler started')
         while not self._stopped.is_set():
-            self.camera.frameRequest() #отправил запрос на новый кадр
+            self.rpiCamStream.frameRequest() #отправил запрос на новый кадр
             self._newFrameEvent.wait() #ждем появления нового кадра
             if not (self._frame is None): #если кадр есть
                 
@@ -42,7 +44,7 @@ class FrameHandler(threading.Thread):
                 # тут у нас обрабока кадра self._frame средствами OpenCV
                 time.sleep(2) #имитируем обработку кадра
                 imgFleName = 'frame%d.jpg' % self._frameCount
-                cv2.imwrite(imgFleName, self._frame) #сохраняем полученный кадр в файл
+                #cv2.imwrite(imgFleName, self._frame) #сохраняем полученный кадр в файл
                 print('Write image file: %s' % imgFleName)
                 self._frameCount += 1
                 #--------------------------------------

@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import os
 import psutil
+import threading
 
 FORMAT_H264 = 0
 FORMAT_MJPEG = 1
@@ -44,10 +45,10 @@ class AppSrcStreamer(object):
         self._host = host
         self._width = resolution[0]
         self._height = resolution[1]
+        self._needFrame = threading.Event() #флаг, необходимо сформировать OpenCV кадр
         self.playing = False
         self.paused = False
         self.onFrameCallback = onFrameCallback #обработчик события OpenCV кадр готов
-        self.needFrame = False #флаг, необходимо сформировать OpenCV кадр
         self.make_pipeline(video, self._width, self._height, framerate, host)
         
     def make_pipeline(self, video, width, height, framerate, host):     
@@ -119,7 +120,7 @@ class AppSrcStreamer(object):
         videoconvert = Gst.ElementFactory.make('videoconvert', 'videoconvert0')
 
         def newSample(sink, data):     # callback функция, исполняющаяся при каждом приходящем кадре
-            if self.needFrame: #если выставлен флаг нужен кадр
+            if self._needFrame.is_set(): #если выставлен флаг нужен кадр
                 sample = sink.emit("pull-sample")
                 sampleBuff = sample.get_buffer()
 
@@ -130,7 +131,8 @@ class AppSrcStreamer(object):
             
                 if self.onFrameCallback and callable(self.onFrameCallback): #проверяем наличие обработчика
                     self.onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
-                self.needFrame = False #сбрасываем флаг
+                    
+                self._needFrame.clear() #сбрасываем флаг
             return Gst.FlowReturn.OK
         
         ### создаем свой sink для перевода из GST в CV
@@ -145,20 +147,10 @@ class AppSrcStreamer(object):
         appsink.set_property("emit-signals", True)
         appsink.connect("new-sample", newSample, appsink)
 
-         # добавляем все элементы в pipeline
-        self.pipeline.add(self.appsrc)
-        self.pipeline.add(rtpbin)
-        self.pipeline.add(udpQueue)
-        self.pipeline.add(opencvQueue)
-        self.pipeline.add(parse)
-        self.pipeline.add(pay)
-        self.pipeline.add(udpsink_rtpout)
-        self.pipeline.add(udpsink_rtcpout)
-        self.pipeline.add(udpsrc_rtcpin)
-        self.pipeline.add(tee)
-        self.pipeline.add(decoder)
-        self.pipeline.add(videoconvert)
-        self.pipeline.add(appsink)
+        # добавляем все элементы в pipeline
+        elemList = [self.appsrc, rtpbin, udpQueue, opencvQueue, parse, pay, udpsink_rtpout, udpsink_rtcpout, udpsrc_rtcpin, tee, decoder, videoconvert, appsink]
+        for elem in elemList:
+            self.pipeline.add(elem)
 
         #соединяем элементы
         #основная ветка
@@ -235,6 +227,11 @@ class AppSrcStreamer(object):
     def flush(self):
         self.stop_pipeline()
 
+    def frameRequest(self): #выставляем флаг запрос кадра, возвращает True, если флаг выставлен
+        if not self._needFrame.is_set():
+            self._needFrame.set()
+        return self._needFrame.is_set()
+
 class RPiCamStreamer(object):
     def __init__(self, video = FORMAT_H264, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT), onFrameCallback = None):
         self._videoFormat = 'h264'
@@ -263,8 +260,8 @@ class RPiCamStreamer(object):
         self._stream.null_pipeline() #закрываем трансляцию
         self.camera.close()
 
-    def frameRequest(self):
-        self._stream.needFrame = True
+    def frameRequest(self): #выставляем флаг запрос кадра, возвращает True, если флаг выставлен
+        return self._stream.frameRequest()
 
     def setFlip(self, hflip, vflip):
         self.camera.hflip = hflip
