@@ -5,6 +5,7 @@ import time
 import cv2
 import numpy as np
 import psutil
+import threading
 
 import rpicam
 
@@ -19,19 +20,54 @@ FRAMERATE = 30
 IP = '173.1.0.95' #IP адрес куда отправляем видео
 RTP_PORT = 5000 #порт отправки RTP видео
 
-frameCount = 0 #счетчик кадров
+class FrameHandler(threading.Thread):
+    
+    def __init__(self, camera):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.camera = camera
+        self._frame = None
+        self._frameCount = 0
+        self._stopped = threading.Event() #событие для остановки потока
+        self._newFrameEvent = threading.Event() #событие для контроля поступления кадров
+        
+    def run(self):
+        print('Frame handler started')
+        while not self._stopped.is_set():
+            self.camera.frameRequest() #отправил запрос на новый кадр
+            self._newFrameEvent.wait() #ждем появления нового кадра
+            if not (self._frame is None): #если кадр есть
+                
+                #--------------------------------------
+                # тут у нас обрабока кадра self._frame средствами OpenCV
+                time.sleep(2) #имитируем обработку кадра
+                imgFleName = 'frame%d.jpg' % self._frameCount
+                cv2.imwrite(imgFleName, self._frame) #сохраняем полученный кадр в файл
+                print('Write image file: %s' % imgFleName)
+                self._frameCount += 1
+                #--------------------------------------
+                
+            self._newFrameEvent.clear() #сбрасываем событие
+            
+        print('Frame handler stopped')
+
+    def stop(self):
+        self._stopped.set()
+        if not self._newFrameEvent.is_set(): #если кадр не обрабатывается
+            self._frame = None
+            self._newFrameEvent.set() 
+        self.join()
+
+    def setFrame(self, frame):
+        if not self._newFrameEvent.is_set(): #если обработчик готов принять новый кадр
+            self._frame = frame
+            self._newFrameEvent.set() #задали событие
+        return self._newFrameEvent.is_set()
+
                 
 def onFrameCallback(frame): #обработчик события 'получен кадр'
-    #--------------------------------------
-    # тут у нас обрабока кадра средствами OpenCV
-    time.sleep(1) #имитируем обработку кадра
-    
-    #--------------------------------------
-    imgFleName = 'frame%d.jpg' % frameCount
-    cv2.imwrite(imgFleName, frame) #сохраняем полученный кадр в файл
-    print('Write image file: %s' % imgFleName)
-    
-    rpiCamStreamer.frameRequest() #отправил запрос на новый кадр
+    #print('New frame')
+    frameHandler.setFrame(frame) #задали новый кадр
 
 print('Start program')
 
@@ -47,6 +83,10 @@ rpiCamStreamer = rpicam.RPiCamStreamer(FORMAT, RESOLUTION, FRAMERATE, (IP, RTP_P
 rpiCamStreamer.setRotation(180) #поворачиваем кадр на 180 град, доступные значения 90, 180, 270
 rpiCamStreamer.start() #запускаем трансляцию
 
+#обработчик кадров    
+frameHandler = FrameHandler(rpiCamStreamer)
+frameHandler.start()
+
 #главный цикл программы
 try:
     rpiCamStreamer.frameRequest() #отправил запрос на новый кадр, для инициализации работы обработчика кадров   
@@ -56,8 +96,11 @@ try:
 except (KeyboardInterrupt, SystemExit):
     print('Ctrl+C pressed')
 
+#останавливаем обработчик кадров
+frameHandler.stop()
+
 #останов трансляции c камеры
-robotCamStreamer.stop()    
-robotCamStreamer.close()
+rpiCamStreamer.stop()    
+rpiCamStreamer.close()
    
 print('End program')
