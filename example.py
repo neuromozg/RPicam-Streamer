@@ -25,28 +25,30 @@ def onFrameCallback(frame): #обработчик события 'получен
     #--------------------------------------
     # тут у нас обрабока кадра средствами OpenCV
     time.sleep(1) #имитируем обработку кадра
+    
     #--------------------------------------
     imgFleName = 'frame%d.jpg' % frameCount
-    cv2.imwrite(imgFleName, frame)
+    cv2.imwrite(imgFleName, frame) #сохраняем полученный кадр в файл
     print('Write image file: %s' % imgFleName)
     
     rpiCamStreamer.frameRequest() #отправил запрос на новый кадр
 
 print('Start program')
-  
+
+#проверка наличия камеры в системе  
 assert rpicam.checkCamera(), 'Raspberry Pi camera not found'
 print('Raspberry Pi camera found')
 
 print('OpenCV version: %s' % cv2.__version__)
 
-#видеопоток с камеры
+#создаем трансляцию с камеры (тип потока h264/mjpeg, разрешение, частота кадров, хост куда шлем, функция обрабтчик кадров)
 rpiCamStreamer = rpicam.RPiCamStreamer(FORMAT, RESOLUTION, FRAMERATE, (IP, RTP_PORT), onFrameCallback)
 #robotCamStreamer.setFlip(False, True) #отражаем кадр (вертикальное отражение, горизонтальное отражение)
-rpiCamStreamer.setRotation(180) #поворачиваем кадр на 180 град
-rpiCamStreamer.start()
+rpiCamStreamer.setRotation(180) #поворачиваем кадр на 180 град, доступные значения 90, 180, 270
+rpiCamStreamer.start() #запускаем трансляцию
 
 #главный цикл программы
-try
+try:
     rpiCamStreamer.frameRequest() #отправил запрос на новый кадр, для инициализации работы обработчика кадров   
     while True:
         print ('CPU temp: %.2f°C. CPU use: %.2f%%' % (rpicam.getCPUtemperature(), psutil.cpu_percent()))
