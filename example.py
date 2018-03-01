@@ -85,20 +85,19 @@ rpiCamStreamer = rpicam.RPiCamStreamer(FORMAT, RESOLUTION, FRAMERATE, (IP, RTP_P
 rpiCamStreamer.setRotation(180) #поворачиваем кадр на 180 град, доступные значения 90, 180, 270
 rpiCamStreamer.start() #запускаем трансляцию
 
-#обработчик кадров    
+#поток обработки кадров    
 frameHandler = FrameHandler(rpiCamStreamer)
-frameHandler.start()
+frameHandler.start() #запускаем обработку
 
 #главный цикл программы
 try:
-    rpiCamStreamer.frameRequest() #отправил запрос на новый кадр, для инициализации работы обработчика кадров   
     while True:
         print ('CPU temp: %.2f°C. CPU use: %.2f%%' % (rpicam.getCPUtemperature(), psutil.cpu_percent()))
         time.sleep(1)
 except (KeyboardInterrupt, SystemExit):
     print('Ctrl+C pressed')
 
-#останавливаем обработчик кадров
+#останавливаем обработку кадров
 frameHandler.stop()
 
 #останов трансляции c камеры
