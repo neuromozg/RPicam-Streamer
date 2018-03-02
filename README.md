@@ -13,7 +13,7 @@ Gstreamer1.0
 gstreamer1.0-omx  
 ```$ sudo apt install gstreamer1.0-omx```
 
-libatlas-base-dev
+libatlas-base-dev  
 ```$ sudo apt-get install libatlas-base-dev```
 
 gi  
