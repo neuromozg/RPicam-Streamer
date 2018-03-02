@@ -60,11 +60,11 @@ class AppSrcStreamer(object):
         bus.add_signal_watch()
         bus.connect("message", self.onMessage)
 
-        rtpbin = Gst.ElementFactory.make('rtpbin', 'rtpbin')
+        rtpbin = Gst.ElementFactory.make('rtpbin')
         rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
                 
         #настраиваем appsrc
-        self.appsrc = Gst.ElementFactory.make('appsrc', 'appsrc0')
+        self.appsrc = Gst.ElementFactory.make('appsrc')
         self.appsrc.set_property("is-live", True)
         videoStr = 'video/x-h264'
         if video:
@@ -77,48 +77,48 @@ class AppSrcStreamer(object):
         #print('RPi camera GST caps: %s' % capstring)
 
         if video == FORMAT_H264:
-            parse = Gst.ElementFactory.make('h264parse', 'parse0')
+            parse = Gst.ElementFactory.make('h264parse')
         else:
-            parse = Gst.ElementFactory.make('jpegparse', 'parse0')
+            parse = Gst.ElementFactory.make('jpegparse')
         
         if video == FORMAT_H264:
-            pay = Gst.ElementFactory.make('rtph264pay', 'pay0')
+            pay = Gst.ElementFactory.make('rtph264pay')
             #rtph264pay.set_property("config-interval", 10)
             pay.set_property("pt", 96)
         else:
-            pay = Gst.ElementFactory.make('rtpjpegpay', 'pay0')
+            pay = Gst.ElementFactory.make('rtpjpegpay')
             pay.set_property("pt", 26)
 
         #For RTP Video
-        udpsink_rtpout = Gst.ElementFactory.make("udpsink", "udpsink_rtpout")
+        udpsink_rtpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtpout')
         udpsink_rtpout.set_property('host', host[0])
         udpsink_rtpout.set_property('port', host[1])
 
-        udpsink_rtcpout = Gst.ElementFactory.make("udpsink", "udpsink_rtcpout")
+        udpsink_rtcpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtcpout')
         udpsink_rtcpout.set_property('host', host[0])
         udpsink_rtcpout.set_property('port', host[1] + 1)
         udpsink_rtcpout.set_property('sync', False)
         udpsink_rtcpout.set_property('async', False)
 
-        udpsrc_rtcpin = Gst.ElementFactory.make("udpsrc", "udpsrc_rtcpin")
+        udpsrc_rtcpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtcpin')
         udpsrc_rtcpin.set_property('port', host[1] + 5)
 
         if not self._onFrameCallback is None:
-            tee = Gst.ElementFactory.make('tee', 'tee0')
-            rtpQueue = Gst.ElementFactory.make("queue", "rtp_queue")
-            frameQueue = Gst.ElementFactory.make("queue", "frame_queue")
+            tee = Gst.ElementFactory.make('tee')
+            rtpQueue = Gst.ElementFactory.make('queue', 'rtp_queue')
+            frameQueue = Gst.ElementFactory.make('queue', 'frame_queue')
         
             if video == FORMAT_H264: 
-                #decoder = Gst.ElementFactory.make('avdec_h264', 'decoder0') #хреново работает загрузка ЦП 120%
-                decoder = Gst.ElementFactory.make('omxh264dec', 'decoder0') #отлично работает загрузка ЦП 200%
-                #decoder = Gst.ElementFactory.make('avdec_h264_mmal', 'decoder0') #не заработал
+                #decoder = Gst.ElementFactory.make('avdec_h264') #хреново работает загрузка ЦП 120%
+                decoder = Gst.ElementFactory.make('omxh264dec') #отлично работает загрузка ЦП 200%
+                #decoder = Gst.ElementFactory.make('avdec_h264_mmal') #не заработал
             else:
-                #decoder = Gst.ElementFactory.make('avdec_mjpeg', 'decoder0') #
-                decoder = Gst.ElementFactory.make('omxmjpegdec', 'decoder0') #
-                #decoder = Gst.ElementFactory.make('jpegdec', 'decoder0') #
+                #decoder = Gst.ElementFactory.make('avdec_mjpeg') #
+                decoder = Gst.ElementFactory.make('omxmjpegdec') #
+                #decoder = Gst.ElementFactory.make('jpegdec') #
             
             
-            videoconvert = Gst.ElementFactory.make('videoconvert', 'videoconvert0')
+            videoconvert = Gst.ElementFactory.make('videoconvert')
 
             def newSample(sink, data):     # callback функция, исполняющаяся при каждом приходящем кадре
                 if self._needFrame.is_set(): #если выставлен флаг нужен кадр
@@ -130,14 +130,13 @@ class AppSrcStreamer(object):
                         (self._height, self._width, 3),
                         buffer = sampleBuff.extract_dup(0, sampleBuff.get_size()), dtype = np.uint8)
             
-                    if not self._onFrameCallback is None: #проверяем наличие обработчика
-                        self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
+                    self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
                     
                     self._needFrame.clear() #сбрасываем флаг
                 return Gst.FlowReturn.OK
         
             ### создаем свой sink для перевода из GST в CV
-            appsink = Gst.ElementFactory.make("appsink", "sink")
+            appsink = Gst.ElementFactory.make('appsink')
 
             cvcaps = Gst.caps_from_string("video/x-raw, format=(string){BGR, GRAY8}") # формат приема sink'a
             appsink.set_property("caps", cvcaps)
@@ -181,19 +180,19 @@ class AppSrcStreamer(object):
             ret = ret and videoconvert.link(appsink)
 
             # подключаем tee к rtpQueue
-            teeSrcPadTemplate = tee.get_pad_template("src_%u")
+            teeSrcPadTemplate = tee.get_pad_template('src_%u')
         
             rtpTeePad = tee.request_pad(teeSrcPadTemplate, None, None)
-            rtpQueuePad = rtpQueue.get_static_pad("sink")
+            rtpQueuePad = rtpQueue.get_static_pad('sink')
             ret = ret and (rtpTeePad.link(rtpQueuePad) == Gst.PadLinkReturn.OK)
 
             # подключаем tee к frameQueue
             frameTeePad = tee.request_pad(teeSrcPadTemplate, None, None)
-            frameQueuePad = frameQueue.get_static_pad("sink")        
+            frameQueuePad = frameQueue.get_static_pad('sink')        
             ret = ret and (frameTeePad.link(frameQueuePad) == Gst.PadLinkReturn.OK)
 
         if not ret:
-            print("ERROR: Elements could not be linked")
+            print('ERROR: Elements could not be linked')
             sys.exit(1)
             
     def onMessage(self, bus, message):
@@ -227,7 +226,8 @@ class AppSrcStreamer(object):
 
     def write(self, s):
         gstBuff = Gst.Buffer.new_wrapped(s)
-        ret = self.appsrc.emit("push-buffer", gstBuff)
+        if not gstBuff is None:
+            self.appsrc.emit("push-buffer", gstBuff)
 
     def flush(self):
         self.stop_pipeline()
