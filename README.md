@@ -10,8 +10,11 @@
 Gstreamer1.0  
 ```$ sudo apt install libgstreamer1.0-0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools```
 
-Дополнительно gstreamer1.0-omx  
+gstreamer1.0-omx  
 ```$ sudo apt install gstreamer1.0-omx```
+
+libatlas-base-dev
+```$ sudo apt-get install libatlas-base-dev```
 
 gi  
 ```$ sudo apt install python3-gi```
