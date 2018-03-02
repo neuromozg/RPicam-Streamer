@@ -38,12 +38,13 @@ def getIP():
     return res
 
 class AppSrcStreamer(object):
-    def __init__(self, video = FORMAT_H264, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT), onFrameCallback = None):        
+    def __init__(self, video = FORMAT_H264, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT), onFrameCallback = None, useOMX = True):        
         self.size = 0
         self._host = host
         self._width = resolution[0]
         self._height = resolution[1]
         self._needFrame = threading.Event() #флаг, необходимо сформировать OpenCV кадр
+        self.useOMX = useOMX
         self.playing = False
         self.paused = False
         self._onFrameCallback = None
@@ -51,15 +52,19 @@ class AppSrcStreamer(object):
             self._onFrameCallback = onFrameCallback #обработчик события OpenCV кадр готов
         #инициализация Gstreamer
         Gst.init(None)
+        #создаем pipeline
         self.make_pipeline(video, self._width, self._height, framerate, host)
+
+        self.bus = self.pipeline.get_bus()
+        self.bus.add_signal_watch()
+        self.bus.connect('message', self.onMessage)
+        
+        self.pipeline.set_state(Gst.State.READY)
+        print('GST pipeline READY')
         
     def make_pipeline(self, video, width, height, framerate, host):     
         # Создание GStreamer pipeline
         self.pipeline = Gst.Pipeline()
-        bus = self.pipeline.get_bus()
-        bus.add_signal_watch()
-        bus.connect("message", self.onMessage)
-
         rtpbin = Gst.ElementFactory.make('rtpbin')
         rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
                 
@@ -77,17 +82,22 @@ class AppSrcStreamer(object):
         #print('RPi camera GST caps: %s' % capstring)
 
         if video == FORMAT_H264:
-            parse = Gst.ElementFactory.make('h264parse')
+            parserName = 'h264parse'
         else:
-            parse = Gst.ElementFactory.make('jpegparse')
+            parserName = 'jpegparse'
+            
+        parser = Gst.ElementFactory.make(parserName)
         
         if video == FORMAT_H264:
-            pay = Gst.ElementFactory.make('rtph264pay')
+            payloaderName = 'rtph264pay'
             #rtph264pay.set_property("config-interval", 10)
-            pay.set_property("pt", 96)
+            #payloadType = 96
         else:
-            pay = Gst.ElementFactory.make('rtpjpegpay')
-            pay.set_property("pt", 26)
+            payloaderName = 'rtpjpegpay'
+            #payloadType = 26
+            
+        payloader = Gst.ElementFactory.make(payloaderName)
+        #payloader.set_property('pt', payloadType)
 
         #For RTP Video
         udpsink_rtpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtpout')
@@ -109,13 +119,18 @@ class AppSrcStreamer(object):
             frameQueue = Gst.ElementFactory.make('queue', 'frame_queue')
         
             if video == FORMAT_H264: 
-                #decoder = Gst.ElementFactory.make('avdec_h264') #хреново работает загрузка ЦП 120%
-                decoder = Gst.ElementFactory.make('omxh264dec') #отлично работает загрузка ЦП 200%
-                #decoder = Gst.ElementFactory.make('avdec_h264_mmal') #не заработал
+                if self.useOMX:
+                    decoderName = 'omxh264dec' #отлично работает загрузка ЦП 200%
+                else:
+                    decoderName = 'avdec_h264' #хреново работает загрузка ЦП 120% 
+                    #decoder = Gst.ElementFactory.make('avdec_h264_mmal') #не заработал
             else:
-                #decoder = Gst.ElementFactory.make('avdec_mjpeg') #
-                decoder = Gst.ElementFactory.make('omxmjpegdec') #
-                #decoder = Gst.ElementFactory.make('jpegdec') #
+                if self.useOMX:
+                    decoderName = 'omxmjpegdec' #
+                else:
+                    decoderName = 'avdec_mjpeg' #
+                    #decoder = Gst.ElementFactory.make('jpegdec') #
+            decoder = Gst.ElementFactory.make(decoderName)
             
             
             videoconvert = Gst.ElementFactory.make('videoconvert')
@@ -148,7 +163,7 @@ class AppSrcStreamer(object):
             appsink.connect("new-sample", newSample, appsink)
 
         # добавляем все элементы в pipeline
-        elemList = [self.appsrc, rtpbin, parse, pay, udpsink_rtpout,
+        elemList = [self.appsrc, rtpbin, parser, payloader, udpsink_rtpout,
                     udpsink_rtcpout, udpsrc_rtcpin]
         if not self._onFrameCallback is None:
             elemList.extend([tee, rtpQueue, frameQueue, decoder, videoconvert, appsink])
@@ -157,22 +172,22 @@ class AppSrcStreamer(object):
             self.pipeline.add(elem)
 
         #соединяем элементы
-        ret = self.appsrc.link(parse)
+        ret = self.appsrc.link(parser)
 
         #соединяем элементы rtpbin
-        ret = ret and pay.link_pads('src', rtpbin, 'send_rtp_sink_0')
+        ret = ret and payloader.link_pads('src', rtpbin, 'send_rtp_sink_0')
         ret = ret and rtpbin.link_pads('send_rtp_src_0', udpsink_rtpout, 'sink')
         ret = ret and rtpbin.link_pads('send_rtcp_src_0', udpsink_rtcpout, 'sink')
         ret = ret and udpsrc_rtcpin.link_pads('src', rtpbin, 'recv_rtcp_sink_0')
 
-        if self._onFrameCallback is None: #трансляция без OpenCV, т.е. создаем одну ветку
-            ret = ret and parse.link(pay)
+        if self._onFrameCallback is None: #трансляция без onFrameCallback, т.е. создаем одну ветку
+            ret = ret and parser.link(payloader)
             
         else: #трансляция с передачей кадров в onFrameCallback, создаем две ветки
-            ret = ret and parse.link(tee)
+            ret = ret and parser.link(tee)
             
             #1-я ветка RTP
-            ret = ret and rtpQueue.link(pay)
+            ret = ret and rtpQueue.link(payloader)
 
             #2-я ветка onFrame
             ret = ret and frameQueue.link(decoder)
@@ -220,6 +235,10 @@ class AppSrcStreamer(object):
         self.pipeline.set_state(Gst.State.READY)
         print('GST pipeline READY')
 
+    def pause_pipeline(self):
+        self.pipeline.set_state(Gst.State.PAUSED)
+        print('GST pipeline PAUSED')
+        
     def null_pipeline(self):
         print('GST pipeline NULL')
         self.pipeline.set_state(Gst.State.NULL)
@@ -256,7 +275,8 @@ class RPiCamStreamer(object):
         print('Start RPi camera recording: %s:%dx%d, framerate=%d, bitrate=%d, quality=%d'
               % (self._videoFormat, self.camera.resolution[0], self.camera.resolution[1],
                  self.camera.framerate, self._bitrate, self._quality))
-        self._stream.play_pipeline() #запускаем трансляцию
+        self._stream.play_pipeline() #запускаем RTP трансляцию
+        #запускаем захват пока с камеры
         self.camera.start_recording(self._stream, self._videoFormat, bitrate=self._bitrate, quality=self._quality)
 
     def stop(self):
