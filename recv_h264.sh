@@ -1,5 +1,5 @@
-#HOST=192.168.1.183
-HOST=173.1.0.86
+HOST=192.168.1.183
+#HOST=173.1.0.86
 RTPBIN_PARAMS="drop-on-latency=1 buffer-mode=0"
 
 gst-launch-1.0 -v rtpbin name=rtpbin $RTPBIN_PARAMS                                          \

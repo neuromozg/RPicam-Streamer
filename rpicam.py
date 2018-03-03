@@ -70,7 +70,7 @@ class AppSrcStreamer(object):
                 
         #настраиваем appsrc
         self.appsrc = Gst.ElementFactory.make('appsrc')
-        self.appsrc.set_property("is-live", True)
+        self.appsrc.set_property('is-live', True)
         videoStr = 'video/x-h264'
         if video:
             videoStr = 'image/jpeg'
@@ -78,7 +78,7 @@ class AppSrcStreamer(object):
             + ',height=' + str(height) + ',framerate=' \
             + str(framerate)+'/1'   
         srccaps = Gst.Caps.from_string(capstring)
-        self.appsrc.set_property("caps", srccaps)
+        self.appsrc.set_property('caps', srccaps)
         #print('RPi camera GST caps: %s' % capstring)
 
         if video == FORMAT_H264:
@@ -90,7 +90,7 @@ class AppSrcStreamer(object):
         
         if video == FORMAT_H264:
             payloaderName = 'rtph264pay'
-            #rtph264pay.set_property("config-interval", 10)
+            #rtph264pay.set_property('config-interval', 10)
             #payloadType = 96
         else:
             payloaderName = 'rtpjpegpay'
@@ -134,10 +134,10 @@ class AppSrcStreamer(object):
             
             
             videoconvert = Gst.ElementFactory.make('videoconvert')
-
-            def newSample(sink, data):     # callback функция, исполняющаяся при каждом приходящем кадре
+            
+            def newSample(sink, data):     # callback функция, вызываемая при каждом приходящем кадре
                 if self._needFrame.is_set(): #если выставлен флаг нужен кадр
-                    sample = sink.emit("pull-sample")
+                    sample = sink.emit('pull-sample')
                     sampleBuff = sample.get_buffer()
 
                     #создаем массив cvFrame в формате opencv
@@ -153,14 +153,14 @@ class AppSrcStreamer(object):
             ### создаем свой sink для перевода из GST в CV
             appsink = Gst.ElementFactory.make('appsink')
 
-            cvcaps = Gst.caps_from_string("video/x-raw, format=(string){BGR, GRAY8}") # формат приема sink'a
-            appsink.set_property("caps", cvcaps)
-            appsink.set_property("sync", False)
-            appsink.set_property("async", False)
-            appsink.set_property("drop", True)
-            appsink.set_property("max-buffers", 1)
-            appsink.set_property("emit-signals", True)
-            appsink.connect("new-sample", newSample, appsink)
+            cvcaps = Gst.caps_from_string('video/x-raw,format=BGR') # формат принимаемых данных
+            appsink.set_property('caps', cvcaps)
+            appsink.set_property('sync', False)
+            #appsink.set_property('async', False)
+            appsink.set_property('drop', True)
+            appsink.set_property('max-buffers', 1)
+            appsink.set_property('emit-signals', True)
+            appsink.connect('new-sample', newSample, appsink)
 
         # добавляем все элементы в pipeline
         elemList = [self.appsrc, rtpbin, parser, payloader, udpsink_rtpout,
@@ -193,7 +193,7 @@ class AppSrcStreamer(object):
             ret = ret and frameQueue.link(decoder)
             ret = ret and decoder.link(videoconvert)
             ret = ret and videoconvert.link(appsink)
-
+            
             # подключаем tee к rtpQueue
             teeSrcPadTemplate = tee.get_pad_template('src_%u')
         
@@ -222,7 +222,7 @@ class AppSrcStreamer(object):
             print('Error-Details: #%u: %s' % (error.code, debug))
             self.null_pipeline()
         #else:
-        #    print("Message: %s" % str(t))
+        #    print('Message: %s' % str(t))
 
     def play_pipeline(self):
         self.pipeline.set_state(Gst.State.PLAYING)
@@ -246,7 +246,7 @@ class AppSrcStreamer(object):
     def write(self, s):
         gstBuff = Gst.Buffer.new_wrapped(s)
         if not gstBuff is None:
-            self.appsrc.emit("push-buffer", gstBuff)
+            self.appsrc.emit('push-buffer', gstBuff)
 
     def flush(self):
         self.stop_pipeline()
