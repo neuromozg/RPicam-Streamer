@@ -20,9 +20,9 @@ FRAMERATE = 30
 IP = '173.1.0.95' #IP адрес куда отправляем видео
 RTP_PORT = 5000 #порт отправки RTP видео
 
-#поток обработки кадров
+#поток для обработки кадров
 #параметр 
-class FrameHandler(threading.Thread):
+class FrameHandlerThread(threading.Thread):
     
     def __init__(self, stream):
         super(FrameHandler, self).__init__()
@@ -69,7 +69,7 @@ class FrameHandler(threading.Thread):
                 
 def onFrameCallback(frame): #обработчик события 'получен кадр'
     #print('New frame')
-    frameHandler.setFrame(frame) #задали новый кадр
+    frameHandlerThread.setFrame(frame) #задали новый кадр
 
 print('Start program')
 
@@ -86,8 +86,8 @@ rpiCamStreamer.setRotation(180) #поворачиваем кадр на 180 гр
 rpiCamStreamer.start() #запускаем трансляцию
 
 #поток обработки кадров    
-frameHandler = FrameHandler(rpiCamStreamer)
-frameHandler.start() #запускаем обработку
+frameHandlerThread = FrameHandlerThread(rpiCamStreamer)
+frameHandlerThread.start() #запускаем обработку
 
 #главный цикл программы
 try:
@@ -98,7 +98,7 @@ except (KeyboardInterrupt, SystemExit):
     print('Ctrl+C pressed')
 
 #останавливаем обработку кадров
-frameHandler.stop()
+frameHandlerThread.stop()
 
 #останов трансляции c камеры
 rpiCamStreamer.stop()    
