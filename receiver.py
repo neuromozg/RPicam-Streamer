@@ -57,11 +57,10 @@ class StreamReceiver(object):
         udpsink_rtcpout.set_property('sync', False)
         udpsink_rtcpout.set_property('async', False)
 
-        if video == FORMAT_H264:
-            depayName = 'rtph264depay'
-            decoderName = 'avdec_h264' #хреново работает загрузка ЦП 120% 
-            #decoder = Gst.ElementFactory.make('avdec_h264_mmal') #не заработал
-        else:
+        depayName = 'rtph264depay'
+        decoderName = 'avdec_h264' #хреново работает загрузка ЦП 120% 
+        #decoder = Gst.ElementFactory.make('avdec_h264_mmal') #не заработал
+        if video:
             depayName = 'rtpjpegdepay'
             #decoderName = 'avdec_mjpeg' #
             decoderName = 'jpegdec' #
@@ -92,29 +91,39 @@ class StreamReceiver(object):
         
         #соединяем элементы rtpbin
 
-        def pad_added(rtpbin, new_pad, gstElem):
+        def PadAdded(rtpbin, new_pad, gstElem):
             sinkPad = Gst.Element.get_static_pad(gstElem, 'sink')
             res = (Gst.Pad.link(new_pad, sinkPad) == Gst.PadLinkReturn.OK)
-            if res:
-                print('SrcPad: %s linked SinkPad: %s' % (new_pad, sinkPad))
-        
-        # get an RTP sinkpad in session 0
-        srcPad = Gst.Element.get_static_pad(udpsrc_rtpin, 'src')
-        sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtp_sink_0')
-        ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
+            #if res:
+                #print('SrcPad: %s linked SinkPad: %s' % (new_pad, sinkPad))
 
+        def PadLink(src, name):
+            srcPad = Gst.Element.get_static_pad(src, 'src')
+            sinkPad = Gst.Element.get_request_pad(rtpbin, name)
+            return (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)            
+                
+        # get an RTP sinkpad in session 0
+        #srcPad = Gst.Element.get_static_pad(udpsrc_rtpin, 'src')
+        #sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtp_sink_0')
+        #ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
+        ret = ret and PadLink(udpsrc_rtpin, 'recv_rtp_sink_0')
+        
         # get an RTCP sinkpad in session 0
-        srcPad = Gst.Element.get_static_pad(udpsrc_rtcpin, 'src')
-        sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtcp_sink_0')
-        ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
+        #srcPad = Gst.Element.get_static_pad(udpsrc_rtcpin, 'src')
+        #sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtcp_sink_0')
+        #ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
+        ret = ret and PadLink(udpsrc_rtcpin, 'recv_rtcp_sink_0')
 
         # get an RTCP srcpad for sending RTCP back to the sender
         srcPad = Gst.Element.get_request_pad(rtpbin, 'send_rtcp_src_0')
         sinkPad = Gst.Element.get_static_pad(udpsink_rtcpout, 'sink')
         ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
-        #print(ret)
+        
+        if not ret:
+            print('ERROR: Elements could not be linked')
+            sys.exit(1)
 
-        rtpbin.connect('pad-added', pad_added, depay) #динамическое подключение rtpbin->depay
+        rtpbin.connect('pad-added', PadAdded, depay) #динамическое подключение rtpbin->depay
         
     def onMessage(self, bus, message):
         #print('Message: %s' % str(message.type))
