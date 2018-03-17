@@ -106,18 +106,21 @@ class StreamReceiver(object):
         #srcPad = Gst.Element.get_static_pad(udpsrc_rtpin, 'src')
         #sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtp_sink_0')
         #ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
-        ret = ret and PadLink(udpsrc_rtpin, 'recv_rtp_sink_0')
+        #ret = ret and PadLink(udpsrc_rtpin, 'recv_rtp_sink_0')
+        ret = ret and udpsrc_rtpin.link_pads('src', rtpbin, 'recv_rtp_sink_0')
         
         # get an RTCP sinkpad in session 0
         #srcPad = Gst.Element.get_static_pad(udpsrc_rtcpin, 'src')
         #sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtcp_sink_0')
         #ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
-        ret = ret and PadLink(udpsrc_rtcpin, 'recv_rtcp_sink_0')
+        #ret = ret and PadLink(udpsrc_rtcpin, 'recv_rtcp_sink_0')
+        ret = ret and udpsrc_rtcpin.link_pads('src', rtpbin, 'recv_rtcp_sink_0')
 
         # get an RTCP srcpad for sending RTCP back to the sender
-        srcPad = Gst.Element.get_request_pad(rtpbin, 'send_rtcp_src_0')
-        sinkPad = Gst.Element.get_static_pad(udpsink_rtcpout, 'sink')
-        ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
+        #srcPad = Gst.Element.get_request_pad(rtpbin, 'send_rtcp_src_0')
+        #sinkPad = Gst.Element.get_static_pad(udpsink_rtcpout, 'sink')
+        #ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
+        ret = ret and rtpbin.link_pads('send_rtcp_src_0', udpsink_rtcpout, 'sink')
         
         if not ret:
             print('ERROR: Elements could not be linked')
