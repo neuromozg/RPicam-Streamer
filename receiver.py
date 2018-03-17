@@ -32,6 +32,7 @@ class StreamReceiver(object):
 
         #rtpbin
         rtpbin = Gst.ElementFactory.make('rtpbin')
+        rtpbin.set_property('autoremove', True)
         rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
         rtpbin.set_property('buffer-mode', 0)
         
@@ -41,7 +42,7 @@ class StreamReceiver(object):
         if video:
             videoStr = 'JPEG'
             payloadType = 26
-        srcCaps = Gst.Caps.from_string('application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)%s,payload=%d' % (formatStr, payloadType))
+        srcCaps = Gst.Caps.from_string('application/x-rtp, media=video,clock-rate=90000, encoding-name=%s, payload=%d' % (formatStr, payloadType))
         
         udpsrc_rtpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtpin')
         udpsrc_rtpin.set_property('port', host[1])
@@ -62,8 +63,8 @@ class StreamReceiver(object):
             #decoder = Gst.ElementFactory.make('avdec_h264_mmal') #не заработал
         else:
             depayName = 'rtpjpegdepay'
-            decoderName = 'avdec_mjpeg' #
-            #decoder = Gst.ElementFactory.make('jpegdec') #
+            #decoderName = 'avdec_mjpeg' #
+            decoderName = 'jpegdec' #
 
         #depayloader
         depay = Gst.ElementFactory.make(depayName)
@@ -71,7 +72,10 @@ class StreamReceiver(object):
         #decoder
         decoder = Gst.ElementFactory.make(decoderName)
         videorate = Gst.ElementFactory.make('videorate')
+
+        #sink
         sink = Gst.ElementFactory.make('autovideosink')
+        sink.set_property('sync', False)
 
         # добавляем все элементы в pipeline
         elemList = [rtpbin, depay, decoder, videorate, sink, udpsrc_rtpin,
@@ -84,31 +88,33 @@ class StreamReceiver(object):
         ret = depay.link(decoder)
         ret = ret and decoder.link(videorate)
         ret = ret and videorate.link(sink)
+        #print(ret)
         
         #соединяем элементы rtpbin
 
-        def pad_added_cb(rtpbin, new_pad, gstElem):
+        def pad_added(rtpbin, new_pad, gstElem):
             sinkPad = Gst.Element.get_static_pad(gstElem, 'sink')
-            res = Gst.Pad.link(new_pad, sinkPad)
+            res = (Gst.Pad.link(new_pad, sinkPad) == Gst.PadLinkReturn.OK)
             if res:
-                print('Pad linked')
+                print('SrcPad: %s linked SinkPad: %s' % (new_pad, sinkPad))
         
         # get an RTP sinkpad in session 0
         srcPad = Gst.Element.get_static_pad(udpsrc_rtpin, 'src')
         sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtp_sink_0')
-        ret = ret and Gst.Pad.link(srcPad, sinkPad)
+        ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
 
         # get an RTCP sinkpad in session 0
         srcPad = Gst.Element.get_static_pad(udpsrc_rtcpin, 'src')
         sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtcp_sink_0')
-        ret = ret and Gst.Pad.link(srcPad, sinkPad)
+        ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
 
         # get an RTCP srcpad for sending RTCP back to the sender
         srcPad = Gst.Element.get_request_pad(rtpbin, 'send_rtcp_src_0')
         sinkPad = Gst.Element.get_static_pad(udpsink_rtcpout, 'sink')
-        ret = ret and Gst.Pad.link(srcPad, sinkPad)
+        ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
+        #print(ret)
 
-        rtpbin.connect('pad-added', pad_added_cb, depay)
+        rtpbin.connect('pad-added', pad_added, depay) #динамическое подключение rtpbin->depay
         
     def onMessage(self, bus, message):
         #print('Message: %s' % str(message.type))
@@ -144,20 +150,4 @@ class StreamReceiver(object):
     def null_pipeline(self):
         print('GST pipeline NULL')
         self.pipeline.set_state(Gst.State.NULL)
-
-#-------------------------------------------------------------------------------------------------
-
-import time
-
-recv = StreamReceiver(FORMAT_MJPEG)
-recv.play_pipeline()
-
-#главный цикл программы    
-try:
-    while True:
-        time.sleep(0.1)
-except (KeyboardInterrupt, SystemExit):
-    print('Ctrl+C pressed')
-
-recv.null_pipeline()
 
