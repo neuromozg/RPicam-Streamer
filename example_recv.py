@@ -14,6 +14,5 @@ try:
 except (KeyboardInterrupt, SystemExit):
     print('Ctrl+C pressed')
 
-recv.pause_pipeline()
-recv.ready_pipeline()
+recv.stop_pipeline()
 recv.null_pipeline()

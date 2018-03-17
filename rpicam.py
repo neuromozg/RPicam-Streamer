@@ -244,8 +244,10 @@ class AppSrcStreamer(object):
         print('Streaming RTP on %s:%d' % (self._host[0], self._host[1]))
 
     def stop_pipeline(self):
-        self.pipeline.set_state(Gst.State.PAUSED)
-        print('GST pipeline PAUSED')
+        self.pause_pipeline()
+        self.ready_pipeline()
+        
+    def ready_pipeline(self):
         self.pipeline.set_state(Gst.State.READY)
         print('GST pipeline READY')
 
