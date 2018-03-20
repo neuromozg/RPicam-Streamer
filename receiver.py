@@ -9,9 +9,10 @@ FORMAT_H264 = 0
 FORMAT_MJPEG = 1
 
 RTP_PORT = 5000
+HOST = '127.0.0.1'
 
 class StreamReceiver(object):
-    def __init__(self, video = FORMAT_H264, host = ('127.0.0.1', RTP_PORT)):
+    def __init__(self, video = FORMAT_H264, host = (HOST, RTP_PORT)):
         self._host = host
         #инициализация Gstreamer
         Gst.init(None)
@@ -33,6 +34,7 @@ class StreamReceiver(object):
         #rtpbin
         rtpbin = Gst.ElementFactory.make('rtpbin')
         rtpbin.set_property('autoremove', True)
+        rtpbin.set_property('latency', 200)        
         rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
         rtpbin.set_property('buffer-mode', 0)
         
@@ -142,9 +144,14 @@ class StreamReceiver(object):
         #else:
         #    print('Message: %s' % str(t))
 
+    def getStatePipeline(self):
+        state = self.pipeline.get_state(Gst.CLOCK_TIME_NONE).state
+        print('GST pipeline', state)
+
 
     def play_pipeline(self):
         self.pipeline.set_state(Gst.State.PLAYING)
+        #self.getStatePipeline()
         print('GST pipeline PLAYING')
 
     def stop_pipeline(self):
