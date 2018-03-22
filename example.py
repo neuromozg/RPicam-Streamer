@@ -25,7 +25,7 @@ RTP_PORT = 5000 #порт отправки RTP видео
 class FrameHandlerThread(threading.Thread):
     
     def __init__(self, stream):
-        super(FrameHandler, self).__init__()
+        super(FrameHandlerThread, self).__init__()
         self.daemon = True
         self.rpiCamStream = stream
         self._frame = None
