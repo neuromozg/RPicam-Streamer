@@ -140,21 +140,6 @@ class AppSrcStreamer(object):
                 videoscaleFilter = Gst.ElementFactory.make('capsfilter', 'scalefilter')
                 videoscaleCaps = Gst.caps_from_string('video/x-raw, width=%d, height=%d' % (self._scaleWidth, self._scaleHeight)) # формат данных после изменения размера
                 videoscaleFilter.set_property('caps', videoscaleCaps)       
-
-            def newSample(sink, data):     # callback функция, вызываемая при каждом приходящем кадре
-                if self._needFrame.is_set(): #если выставлен флаг нужен кадр
-                    sample = sink.emit('pull-sample')
-                    sampleBuff = sample.get_buffer()
-
-                    #создаем массив cvFrame в формате opencv
-                    cvFrame = np.ndarray(
-                        (self._scaleHeight, self._scaleWidth, 3),
-                        buffer = sampleBuff.extract_dup(0, sampleBuff.get_size()), dtype = np.uint8)
-            
-                    self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
-                    
-                    self._needFrame.clear() #сбрасываем флаг
-                return Gst.FlowReturn.OK
         
             ### создаем свой sink для перевода из GST в CV
             appsink = Gst.ElementFactory.make('appsink')
@@ -166,7 +151,7 @@ class AppSrcStreamer(object):
             appsink.set_property('drop', True)
             appsink.set_property('max-buffers', 1)
             appsink.set_property('emit-signals', True)
-            appsink.connect('new-sample', newSample, appsink)
+            appsink.connect('new-sample', self._newSample, appsink)
 
         # добавляем все элементы в pipeline
         elemList = [self.appsrc, rtpbin, parser, payloader, udpsink_rtpout,
@@ -223,6 +208,21 @@ class AppSrcStreamer(object):
         if not ret:
             print('ERROR: Elements could not be linked')
             sys.exit(1)
+
+    def _newSample(self, sink, data):     # callback функция, вызываемая при каждом приходящем кадре
+        if self._needFrame.is_set(): #если выставлен флаг нужен кадр
+            sample = sink.emit('pull-sample')
+            sampleBuff = sample.get_buffer()
+
+            #создаем массив cvFrame в формате opencv
+            cvFrame = np.ndarray(
+                (self._scaleHeight, self._scaleWidth, 3),
+                buffer = sampleBuff.extract_dup(0, sampleBuff.get_size()), dtype = np.uint8)
+            
+            self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
+                    
+            self._needFrame.clear() #сбрасываем флаг
+        return Gst.FlowReturn.OK
             
     def onMessage(self, bus, message):
         #print('Message: %s' % str(message.type))
