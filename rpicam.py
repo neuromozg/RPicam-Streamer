@@ -54,16 +54,16 @@ class AppSrcStreamer(object):
         #инициализация Gstreamer
         Gst.init(None)
         #создаем pipeline
-        self.make_pipeline(video, self._width, self._height, framerate, host, useOMX, scale)
+        self._make_pipeline(video, self._width, self._height, framerate, host, useOMX, scale)
 
         self.bus = self.pipeline.get_bus()
         self.bus.add_signal_watch()
-        self.bus.connect('message', self.onMessage)
+        self.bus.connect('message', self._onMessage)
         
         self.pipeline.set_state(Gst.State.READY)
         print('GST pipeline READY')
         
-    def make_pipeline(self, video, width, height, framerate, host, useOMX, scale):     
+    def _make_pipeline(self, video, width, height, framerate, host, useOMX, scale):     
         # Создание GStreamer pipeline
         self.pipeline = Gst.Pipeline()
         rtpbin = Gst.ElementFactory.make('rtpbin')
@@ -224,7 +224,7 @@ class AppSrcStreamer(object):
             self._needFrame.clear() #сбрасываем флаг
         return Gst.FlowReturn.OK
             
-    def onMessage(self, bus, message):
+    def _onMessage(self, bus, message):
         #print('Message: %s' % str(message.type))
         t = message.type
         if t == Gst.MessageType.EOS:
@@ -273,7 +273,8 @@ class AppSrcStreamer(object):
         return self._needFrame.is_set()
 
 class RPiCamStreamer(object):
-    def __init__(self, video = FORMAT_H264, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT), onFrameCallback = None):
+    def __init__(self, video = FORMAT_H264, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT),
+                 onFrameCallback = None, scale = 1):
         self._videoFormat = 'h264'
         self._quality = 20
         self._bitrate = 1000000
@@ -285,7 +286,7 @@ class RPiCamStreamer(object):
         self.camera.resolution = resolution
         self.camera.framerate = framerate
         self._stream = AppSrcStreamer(video, resolution,
-            framerate, host, onFrameCallback, useOMX = True, scale = 0.5)
+            framerate, host, onFrameCallback, useOMX = True, scale)
         
     def init(self):
         pass
