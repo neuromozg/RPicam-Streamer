@@ -14,7 +14,7 @@ gstreamer1.0-omx
 ```$ sudo apt install gstreamer1.0-omx```
 
 libatlas-base-dev  
-```$ sudo apt-get install libatlas-base-dev```
+```$ sudo apt install libatlas-base-dev```
 
 gi  
 ```$ sudo apt install python3-gi```
