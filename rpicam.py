@@ -286,7 +286,7 @@ class RPiCamStreamer(object):
         self.camera.resolution = resolution
         self.camera.framerate = framerate
         self._stream = AppSrcStreamer(video, resolution,
-            framerate, host, onFrameCallback, useOMX = True, scale)
+            framerate, host, onFrameCallback, True, scale)
         
     def init(self):
         pass

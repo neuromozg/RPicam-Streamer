@@ -7,7 +7,7 @@ import receiver
 IP_ROBOT = '127.0.0.1'
 RTP_PORT = 5000
 
-recv = receiver.StreamReceiver(receiver.FORMAT_MJPEG, (IP_ROBOT, RTP_PORT))
+recv = receiver.StreamReceiver(receiver.FORMAT_H264, (IP_ROBOT, RTP_PORT))
 recv.play_pipeline()
 
 #главный цикл программы    
