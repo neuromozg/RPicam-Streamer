@@ -28,7 +28,7 @@ def checkCamera():
     dct = {}
     for param in res.split(' '): #разбираем параметры
         tmp = param.split('=')
-        dct.update({tmp[0]: tmp[1]}) #помещаем в словарь
+        dct.update({tmp[0]: int(tmp[1])}) #помещаем в словарь
     return (dct['supported'] and dct['detected'])
 
 def getIP():
