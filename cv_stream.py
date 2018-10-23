@@ -24,9 +24,13 @@ class OpenCVRTPStreamer(object):
         self._streamer = cv2.VideoWriter()
 
     def start(self):
-        print('RTP streamer started...')
-        return self._streamer.open(self._pipeline, cv2.CAP_GSTREAMER, 0, self._framerate, self._resolution, True)
-
+        if self._streamer.open(self._pipeline, cv2.CAP_GSTREAMER, 0, self._framerate, self._resolution, True):
+            print('RTP streamer started...')
+            return True
+        else:
+            print('Error start pipeline...')
+            return False
+            
     def stop(self):
         self._streamer.release()
         print('RTP streamer stopped...')
@@ -62,7 +66,7 @@ class OpenCVRTPReciver(threading.Thread):
                 ret, frame = self._receiver.read()
 
                 if ret:
-                    if not self._onFrameCallback is None:
+                    if not (self._onFrameCallback is None):
                         self._onFrameCallback(frame)
                 else:
                     break
