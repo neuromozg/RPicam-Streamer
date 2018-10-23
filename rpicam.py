@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import gi
 gi.require_version('Gst','1.0')
 from gi.repository import Gst
@@ -11,9 +8,16 @@ import sys
 import os
 import psutil
 import threading
+from enum import Enum
+
+class VideoFormat(Enum):
+    H264 = 0
+    MJPEG = 1
+    RAW = 2
 
 FORMAT_H264 = 0
 FORMAT_MJPEG = 1
+FORMAT_RAW = 2
 
 RTP_PORT = 5000
 
@@ -38,7 +42,7 @@ def getIP():
     return res
 
 class AppSrcStreamer(object):
-    def __init__(self, video = FORMAT_H264, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT),
+    def __init__(self, video = VideoFormat.H264, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT),
                  onFrameCallback = None, useOMX = True, scale = 1):        
         self._host = host
         self._width = resolution[0]
@@ -72,9 +76,12 @@ class AppSrcStreamer(object):
         #настраиваем appsrc
         self.appsrc = Gst.ElementFactory.make('appsrc')
         self.appsrc.set_property('is-live', True)
-        videoStr = 'video/x-h264'
-        if video:
+        if video = VideoFormat.H264:
+            videoStr = 'video/x-h264'
+        elif video = VideoFormat.MJPEG:
             videoStr = 'image/jpeg'
+        elif video = VideoFormat.RAW:
+            videoStr = 'video/x-raw,format=BGR'
         capstring = videoStr + ',width=' + str(width) \
             + ',height=' + str(height) + ',framerate=' \
             + str(framerate)+'/1'   
@@ -82,14 +89,18 @@ class AppSrcStreamer(object):
         self.appsrc.set_property('caps', srccaps)
         #print('RPi camera GST caps: %s' % capstring)
 
-        if video == FORMAT_H264:
+        if video = VideoFormat.RAW:
+            videoconvert = Gst.ElementFactory.make('videoconvert')
+            
+            
+        if video == VideoFormat.H264:
             parserName = 'h264parse'
         else:
             parserName = 'jpegparse'
             
         parser = Gst.ElementFactory.make(parserName)
         
-        if video == FORMAT_H264:
+        if video == VideoFormat.H264:
             payloaderName = 'rtph264pay'
             #rtph264pay.set_property('config-interval', 10)
             #payloadType = 96
@@ -119,7 +130,7 @@ class AppSrcStreamer(object):
             rtpQueue = Gst.ElementFactory.make('queue', 'rtp_queue')
             frameQueue = Gst.ElementFactory.make('queue', 'frame_queue')
         
-            if video == FORMAT_H264: 
+            if video == VideoFormat.H264: 
                 if useOMX:
                     decoderName = 'omxh264dec' #отлично работает загрузка ЦП 200%
                 else:
@@ -261,7 +272,7 @@ class AppSrcStreamer(object):
 
     def write(self, s):
         gstBuff = Gst.Buffer.new_wrapped(s)
-        if not gstBuff is None:
+        if not (gstBuff is None):
             self.appsrc.emit('push-buffer', gstBuff)
 
     def flush(self):
