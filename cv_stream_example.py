@@ -5,7 +5,7 @@ import cv2
 import time
 import cv_stream
 
-RTP_PORT = 5000
+RTP_PORT = 8000
 HOST = '127.0.0.1'
 FRAMERATE = 10.0
 RESOLUTION = (800, 600)
@@ -20,26 +20,29 @@ def showFrame(frame):
     if cv2.waitKey(1) & 0xFF == ord('q'):
         running = False
         
-print(cv2.__version__)
-print(cv2.getBuildInformation())
+print(cv2.__version__) #версия opencv
+print(cv2.getBuildInformation()) #полезная информация, интересует строка Video I/O, GStreamer
 
 cap = cv2.VideoCapture(0)
+#задаем параметры видео
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, RESOLUTION[0])
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, RESOLUTION[1])
 cap.set(cv2.CAP_PROP_FPS, FRAMERATE)
 
-streamer = cv_stream.OpenCVRTPStreamer(resolution = RESOLUTION)
+#отправка потока
+streamer = cv_stream.OpenCVRTPStreamer(resolution = RESOLUTION, framerate = FRAMERATE, host = (HOST, RTP_PORT))
 streamer.start()
 
-receiver = cv_stream.OpenCVRTPReciver(onFrameCallback = showFrame)
+#прием потока
+receiver = cv_stream.OpenCVRTPReciver(host = (HOST, RTP_PORT), onFrameCallback = showFrame)
 receiver.start()
 
 while running:
 
-    ret, frame = cap.read()
+    ret, frame = cap.read() #получаем кадр с камеры
     
     if ret:
-        streamer.sendFrame(frame)
+        streamer.sendFrame(frame) #помещаем кадр в поток
     else:
         break
 
