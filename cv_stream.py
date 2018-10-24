@@ -1,23 +1,21 @@
 import cv2
-from enum import Enum
 import threading
 
-class VideoFormat(Enum):
-    H264 = 0
-    MJPEG = 1
+VIDEO_H264 = 0
+VIDEO_MJPEG = 1
 
 class OpenCVRTPStreamer(object):
-    def __init__(self, video = VideoFormat.MJPEG, resolution = (640, 480), framerate = 30, host = ('localhost', 5000)):
+    def __init__(self, video = VIDEO_MJPEG, resolution = (640, 480), framerate = 30, host = ('localhost', 5000)):
         self._host = host
         self._resolution = resolution
         self._framerate = framerate
         self._video = video
         
         codecStr = 'jpegenc ! rtpjpegpay'
-        if video == VideoFormat.H264:
+        if video == VIDEO_H264:
             codecStr = 'x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! rtph264pay'
             
-        self._pipeline = 'rtpbin name=rtpbin appsrc ! video/x-raw, format=BGR ! videoconvert ! video/x-raw, format=I420 ! %s ! queue ! rtpbin.send_rtp_sink_0 ' \
+        self._pipeline = 'rtpbin name=rtpbin appsrc ! video/x-raw,format=BGR ! videoconvert ! video/x-raw,format=I420 ! %s ! queue ! rtpbin.send_rtp_sink_0 ' \
             ' rtpbin.send_rtp_src_0 ! udpsink port=%d host=%s ' \
             ' rtpbin.send_rtcp_src_0 ! udpsink port=%d host=%s sync=false async=false ' \
             ' udpsrc port=%d ! rtpbin.recv_rtcp_sink_0' % (codecStr, host[1], host[0], host[1]+1, host[0], host[1]+5)
@@ -40,14 +38,14 @@ class OpenCVRTPStreamer(object):
             self._streamer.write(frame)
 
 class OpenCVRTPReciver(threading.Thread):
-    def __init__(self, video = VideoFormat.MJPEG, host = ('localhost', 5000), onFrameCallback = None):
+    def __init__(self, video = VIDEO_MJPEG, host = ('localhost', 5000), onFrameCallback = None):
         super(OpenCVRTPReciver, self).__init__()
         if (not onFrameCallback is None) and callable(onFrameCallback):
             self._onFrameCallback = onFrameCallback #обработчик события OpenCV кадр готов
             
         decodeStr = 'rtpjpegdepay ! jpegdec'
         encodingName = 'JPEG'
-        if video == VideoFormat.H264:
+        if video == VIDEO_H264:
             decodeStr = 'rtph264depay ! avdec_h264'
             encodingName = 'H264'
         self._pipeline = 'rtpbin name=rtpbin latency=250 drop-on-latency=true buffer-mode=0 ' \

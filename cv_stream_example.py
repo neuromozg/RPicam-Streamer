@@ -3,12 +3,12 @@
 
 import cv2
 import time
-from cv_stream import OpenCVRTPStreamer, OpenCVRTPReciver
+import cv_stream
 
 RTP_PORT = 5000
 HOST = '127.0.0.1'
-FRAMERATE = 30.0
-RESOLUTION = (640, 480)
+FRAMERATE = 10.0
+RESOLUTION = (800, 600)
 
 running = True
         
@@ -24,11 +24,14 @@ print(cv2.__version__)
 print(cv2.getBuildInformation())
 
 cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, RESOLUTION[0])
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, RESOLUTION[1])
+cap.set(cv2.CAP_PROP_FPS, FRAMERATE)
 
-streamer = OpenCVRTPStreamer()
+streamer = cv_stream.OpenCVRTPStreamer(resolution = RESOLUTION)
 streamer.start()
 
-receiver = OpenCVRTPReciver(onFrameCallback = showFrame)
+receiver = cv_stream.OpenCVRTPReciver(onFrameCallback = showFrame)
 receiver.start()
 
 while running:
@@ -36,7 +39,6 @@ while running:
     ret, frame = cap.read()
     
     if ret:
-        time.sleep(0.1) # имитация обработки
         streamer.sendFrame(frame)
     else:
         break
