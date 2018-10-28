@@ -33,7 +33,7 @@ class StreamReceiver(object):
 
         #rtpbin
         rtpbin = Gst.ElementFactory.make('rtpbin')
-        rtpbin.set_property('autoremove', True)
+        #rtpbin.set_property('autoremove', True)
         rtpbin.set_property('latency', 200)        
         rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
         rtpbin.set_property('buffer-mode', 0)
@@ -44,7 +44,7 @@ class StreamReceiver(object):
         if video:
             videoStr = 'JPEG'
             payloadType = 26
-        srcCaps = Gst.Caps.from_string('application/x-rtp, media=video,clock-rate=90000, encoding-name=%s, payload=%d' % (formatStr, payloadType))
+        srcCaps = Gst.Caps.from_string('application/x-rtp, media=video, clock-rate=90000, encoding-name=%s, payload=%d' % (formatStr, payloadType))
         
         udpsrc_rtpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtpin')
         udpsrc_rtpin.set_property('port', host[1])
@@ -147,7 +147,6 @@ class StreamReceiver(object):
     def getStatePipeline(self):
         state = self.pipeline.get_state(Gst.CLOCK_TIME_NONE).state
         print('GST pipeline', state)
-
 
     def play_pipeline(self):
         self.pipeline.set_state(Gst.State.PLAYING)

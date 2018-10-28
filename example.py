@@ -10,8 +10,8 @@ import threading
 import rpicam
 
 #настройки видеопотока
-FORMAT = rpicam.FORMAT_H264 #поток H264
-#FORMAT = rpicam.FORMAT_MJPEG #поток MJPEG
+FORMAT = rpicam.VIDEO_H264 #поток H264
+#FORMAT = rpicam.VIDEO_MJPEG #поток MJPEG
 WIDTH, HEIGHT = 640, 360
 RESOLUTION = (WIDTH, HEIGHT)
 FRAMERATE = 30
@@ -36,21 +36,20 @@ class FrameHandlerThread(threading.Thread):
     def run(self):
         print('Frame handler started')
         while not self._stopped.is_set():
-            self.rpiCamStream.frameRequest() #отправил запрос на новый кадр
-            self._newFrameEvent.wait() #ждем появления нового кадра
-            if not (self._frame is None): #если кадр есть
+            if self.rpiCamStream.frameRequest(): #отправил запрос на новый кадр
+                self._newFrameEvent.wait() #ждем появления нового кадра
+                if not (self._frame is None): #если кадр есть
                 
-                #--------------------------------------
-                # тут у нас обрабока кадра self._frame средствами OpenCV
-                time.sleep(2) #имитируем обработку кадра
-                imgFleName = 'frame%d.jpg' % self._frameCount
-                #cv2.imwrite(imgFleName, self._frame) #сохраняем полученный кадр в файл
-                print('Write image file: %s' % imgFleName)
-                self._frameCount += 1
-                #--------------------------------------
-                
-            self._newFrameEvent.clear() #сбрасываем событие
-            
+                    #--------------------------------------
+                    time.sleep(2) #имитируем обработку кадра
+                    imgFleName = 'frame%d.jpg' % self._frameCount
+                    #cv2.imwrite(imgFleName, self._frame) #сохраняем полученный кадр в файл
+                    print('Write image file: %s' % imgFleName)
+                    self._frameCount += 1
+                    #--------------------------------------
+                    
+                self._newFrameEvent.clear() #сбрасываем событие
+
         print('Frame handler stopped')
 
     def stop(self): #остановка потока
