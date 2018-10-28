@@ -50,8 +50,10 @@ class StreamReceiver(object):
         udpsrc_rtpin.set_property('port', host[1])
         udpsrc_rtpin.set_property('caps', srcCaps)
 
+        srcCaps = Gst.Caps.from_string('application/x-rtcp')
         udpsrc_rtcpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtcpin')
         udpsrc_rtcpin.set_property('port', host[1] + 1)
+        udpsrc_rtcpin.set_property('caps', srcCaps)
 
         udpsink_rtcpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtcpout')
         udpsink_rtcpout.set_property('host', host[0])

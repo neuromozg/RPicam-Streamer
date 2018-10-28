@@ -105,6 +105,8 @@ class AppSrcStreamer(object):
         udpsink_rtpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtpout')
         udpsink_rtpout.set_property('host', host[0])
         udpsink_rtpout.set_property('port', host[1])
+        udpsink_rtpout.set_property('sync', True)
+        udpsink_rtpout.set_property('async', False)
 
         udpsink_rtcpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtcpout')
         udpsink_rtcpout.set_property('host', host[0])
@@ -112,8 +114,11 @@ class AppSrcStreamer(object):
         udpsink_rtcpout.set_property('sync', False)
         udpsink_rtcpout.set_property('async', False)
 
+        srcCaps = Gst.Caps.from_string('application/x-rtcp')
         udpsrc_rtcpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtcpin')
         udpsrc_rtcpin.set_property('port', host[1] + 5)
+        udpsrc_rtcpin.set_property('caps', srcCaps)
+        
 
         if not self._onFrameCallback is None:
             tee = Gst.ElementFactory.make('tee')

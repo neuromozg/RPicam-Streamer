@@ -16,9 +16,9 @@ class OpenCVRTPStreamer(object):
             codecStr = 'x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! rtph264pay'
             
         self._pipeline = 'rtpbin name=rtpbin appsrc ! video/x-raw,format=BGR ! videoconvert ! video/x-raw,format=I420 ! %s ! queue ! rtpbin.send_rtp_sink_0 ' \
-            ' rtpbin.send_rtp_src_0 ! udpsink port=%d host=%s ' \
+            ' rtpbin.send_rtp_src_0 ! udpsink port=%d host=%s sync=true async=false' \
             ' rtpbin.send_rtcp_src_0 ! udpsink port=%d host=%s sync=false async=false ' \
-            ' udpsrc port=%d ! rtpbin.recv_rtcp_sink_0' % (codecStr, host[1], host[0], host[1]+1, host[0], host[1]+5)
+            ' udpsrc port=%d caps="application/x-rtcp"! rtpbin.recv_rtcp_sink_0' % (codecStr, host[1], host[0], host[1]+1, host[0], host[1]+5)
         self._streamer = cv2.VideoWriter()
 
     def start(self):
@@ -51,7 +51,7 @@ class OpenCVRTPReciver(threading.Thread):
         self._pipeline = 'rtpbin name=rtpbin latency=250 drop-on-latency=true buffer-mode=0 ' \
             'udpsrc caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)%s" port=%d ! rtpbin.recv_rtp_sink_0 ' \
             'rtpbin. ! %s ! videoconvert ! video/x-raw, format=BGR ! appsink ' \
-            'udpsrc port=%d ! rtpbin.recv_rtcp_sink_0 ' \
+            'udpsrc caps="application/x-rtcp" port=%d ! rtpbin.recv_rtcp_sink_0 ' \
             'rtpbin.send_rtcp_src_0 ! udpsink port=%d host=%s sync=false async=false' % (encodingName, host[1], decodeStr, host[1]+1, host[1]+5, host[0])
         self._receiver = cv2.VideoCapture()
         self._stopped = threading.Event() #событие для остановки потока
