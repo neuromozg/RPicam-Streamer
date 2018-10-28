@@ -37,8 +37,8 @@ class FrameHandlerThread(threading.Thread):
         print('Frame handler started')
         while not self._stopped.is_set():
             if self.rpiCamStream.frameRequest(): #отправил запрос на новый кадр
-                self._newFrameEvent.wait() #ждем появления нового кадра
-                if not (self._frame is None): #если кадр есть
+                self._newFrameEvent.wait() #если запрос отправлен успешно, ждем появления нового кадра
+                if not (self._frame is None): #если получен кадр
                 
                     #--------------------------------------
                     time.sleep(2) #имитируем обработку кадра
@@ -63,7 +63,8 @@ class FrameHandlerThread(threading.Thread):
         if not self._newFrameEvent.is_set(): #если обработчик готов принять новый кадр
             self._frame = frame
             self._newFrameEvent.set() #задали событие
-        return self._newFrameEvent.is_set()
+            return True
+        return False
 
                 
 def onFrameCallback(frame): #обработчик события 'получен кадр'
