@@ -1,8 +1,7 @@
 import cv2
 import threading
 
-VIDEO_H264 = 0
-VIDEO_MJPEG = 1
+from common import *
 
 class OpenCVRTPStreamer(object):
     def __init__(self, video = VIDEO_MJPEG, resolution = (640, 480), framerate = 30, host = ('localhost', 5000)):
