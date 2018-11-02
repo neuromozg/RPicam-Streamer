@@ -42,7 +42,12 @@ class AppSrcStreamer(object):
         # Создание GStreamer pipeline
         self.pipeline = Gst.Pipeline()
         rtpbin = Gst.ElementFactory.make('rtpbin')
+        rtpbin.set_property('latency', 200)
         rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
+        rtpbin.set_property('buffer-mode', 4)
+        rtpbin.set_property('ntp-time-source', 3) #источник времени clock-time
+        rtpbin.set_property('ntp-sync', True)
+        rtpbin.set_property('rtcp-sync-send-time', False) 
                 
         #настраиваем appsrc
         self.appsrc = Gst.ElementFactory.make('appsrc')
@@ -127,12 +132,12 @@ class AppSrcStreamer(object):
             ### создаем свой sink для перевода из GST в CV
             appsink = Gst.ElementFactory.make('appsink')
 
-            cvcaps = Gst.caps_from_string('video/x-raw, format=BGR') # формат принимаемых данных
-            appsink.set_property('caps', cvcaps)
-            appsink.set_property('sync', False)
+            cvCaps = Gst.caps_from_string('video/x-raw, format=BGR') # формат принимаемых данных
+            appsink.set_property('caps', cvCaps)
+            appsink.set_property('sync', True)
             #appsink.set_property('async', False)
             appsink.set_property('drop', True)
-            appsink.set_property('max-buffers', 1)
+            appsink.set_property('max-buffers', 5)
             appsink.set_property('emit-signals', True)
             appsink.connect('new-sample', self._newSample, appsink)
 

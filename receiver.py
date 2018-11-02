@@ -5,14 +5,13 @@ import gi
 gi.require_version('Gst','1.0')
 from gi.repository import Gst
 
-FORMAT_H264 = 0
-FORMAT_MJPEG = 1
+from common import *
 
 RTP_PORT = 5000
 HOST = '127.0.0.1'
 
 class StreamReceiver(object):
-    def __init__(self, video = FORMAT_H264, host = (HOST, RTP_PORT)):
+    def __init__(self, video = VIDEO_H264, host = (HOST, RTP_PORT)):
         self._host = host
         #инициализация Gstreamer
         Gst.init(None)
@@ -36,7 +35,10 @@ class StreamReceiver(object):
         #rtpbin.set_property('autoremove', True)
         rtpbin.set_property('latency', 200)        
         rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
-        rtpbin.set_property('buffer-mode', 0)
+        rtpbin.set_property('buffer-mode', 4)
+        #rtpbin.set_property('ntp-time-source', 3)
+        #rtpbin.set_property('ntp-sync', True)
+        #rtpbin.set_property('rtcp-sync-send-time', False)
         
         #RTP Video
         formatStr = 'H264'
