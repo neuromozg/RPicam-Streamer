@@ -60,7 +60,7 @@ class StreamReceiver(object):
         udpsink_rtcpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtcpout')
         udpsink_rtcpout.set_property('host', host[0])
         udpsink_rtcpout.set_property('port', host[1] + 5)
-        udpsink_rtcpout.set_property('sync', False)
+        udpsink_rtcpout.set_property('sync', True)
         udpsink_rtcpout.set_property('async', False)
 
         depayName = 'rtph264depay'
@@ -79,7 +79,8 @@ class StreamReceiver(object):
         videorate = Gst.ElementFactory.make('videorate')
 
         #sink
-        sink = Gst.ElementFactory.make('autovideosink')
+        #sink = Gst.ElementFactory.make('autovideosink')
+        sink = Gst.ElementFactory.make('fpsdisplaysink')        
         sink.set_property('sync', False)
 
         # добавляем все элементы в pipeline

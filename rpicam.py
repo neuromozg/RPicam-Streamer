@@ -199,6 +199,7 @@ class AppSrcStreamer(object):
 
     def _newSample(self, sink, data):     # callback функция, вызываемая при каждом приходящем кадре
         if self._needFrame.is_set(): #если выставлен флаг нужен кадр
+            self._needFrame.clear() #сбрасываем флаг
             sample = sink.emit('pull-sample')
             sampleBuff = sample.get_buffer()
 
@@ -208,8 +209,7 @@ class AppSrcStreamer(object):
                 buffer = sampleBuff.extract_dup(0, sampleBuff.get_size()), dtype = np.uint8)
             
             self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
-                    
-            self._needFrame.clear() #сбрасываем флаг
+
         return Gst.FlowReturn.OK
             
     def _onMessage(self, bus, message):
