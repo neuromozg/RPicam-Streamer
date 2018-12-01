@@ -31,7 +31,7 @@ class FrameHandlerThread(threading.Thread):
         self._frame = None
         self._frameCount = 0
         self._stopped = threading.Event() #событие для остановки потока
-        self._nanonewFrameEvent = threading.Event() #событие для контроля поступления кадров
+        self._newFrameEvent = threading.Event() #событие для контроля поступления кадров
         
     def run(self):
         print('Frame handler started')
