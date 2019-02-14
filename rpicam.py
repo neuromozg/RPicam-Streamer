@@ -134,7 +134,7 @@ class AppSrcStreamer(object):
 
             cvCaps = Gst.caps_from_string('video/x-raw, format=BGR') # формат принимаемых данных
             appsink.set_property('caps', cvCaps)
-            appsink.set_property('sync', True)
+            appsink.set_property('sync', False)
             #appsink.set_property('async', False)
             appsink.set_property('drop', True)
             appsink.set_property('max-buffers', 5)

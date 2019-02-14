@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import gi
 gi.require_version('Gst','1.0')
 from gi.repository import Gst
+import numpy as np
 
 from common import *
 
@@ -11,8 +9,11 @@ RTP_PORT = 5000
 HOST = '127.0.0.1'
 
 class StreamReceiver(object):
-    def __init__(self, video = VIDEO_H264, host = (HOST, RTP_PORT)):
+    def __init__(self, video = VIDEO_H264, host = (HOST, RTP_PORT), onFrameCallback = None):
         self._host = host
+        self._onFrameCallback = None
+        if (not onFrameCallback is None) and callable(onFrameCallback):
+            self._onFrameCallback = onFrameCallback #обработчик события получен кадр
         #инициализация Gstreamer
         Gst.init(None)
         #создаем pipeline
@@ -79,9 +80,22 @@ class StreamReceiver(object):
         videorate = Gst.ElementFactory.make('videorate')
 
         #sink
-        #sink = Gst.ElementFactory.make('autovideosink')
-        sink = Gst.ElementFactory.make('fpsdisplaysink')        
-        sink.set_property('sync', False)
+        if not self._onFrameCallback is None:
+            videoconvert = Gst.ElementFactory.make('videoconvert')
+            
+            sink = Gst.ElementFactory.make('appsink')
+            sinkCaps = Gst.caps_from_string('video/x-raw, format=RGB') # формат принимаемых данных
+            sink.set_property('caps', sinkCaps)
+            sink.set_property('sync', False)
+            #appsink.set_property('async', False)
+            sink.set_property('drop', True)
+            sink.set_property('max-buffers', 5)
+            sink.set_property('emit-signals', True)
+            sink.connect('new-sample', self._newSample, sink)
+        else:
+            #sink = Gst.ElementFactory.make('autovideosink')
+            sink = Gst.ElementFactory.make('fpsdisplaysink')        
+            sink.set_property('sync', False)
 
         # добавляем все элементы в pipeline
         elemList = [rtpbin, depay, decoder, videorate, sink, udpsrc_rtpin,
@@ -93,7 +107,13 @@ class StreamReceiver(object):
         #соединяем элементы
         ret = depay.link(decoder)
         ret = ret and decoder.link(videorate)
-        ret = ret and videorate.link(sink)
+        
+        if not self._onFrameCallback is None:
+            self.pipeline.add(videoconvert) # добавляем videoconvert в pipeline
+            ret = ret and videorate.link(videoconvert)
+            ret = ret and videoconvert.link(sink)           
+        else:
+            ret = ret and videorate.link(sink)
         #print(ret)
         
         #соединяем элементы rtpbin
@@ -173,4 +193,22 @@ class StreamReceiver(object):
     def null_pipeline(self):
         print('GST pipeline NULL')
         self.pipeline.set_state(Gst.State.NULL)
+
+    def _newSample(self, sink, data):     # callback функция, вызываемая при каждом приходящем кадре
+        sample = sink.emit('pull-sample')
+        sampleBuff = sample.get_buffer()
+        
+        caps = sample.get_caps()
+
+        widthFrame = caps.get_structure(0).get_value('width')
+        heightFrame = caps.get_structure(0).get_value('height')
+
+        #создаем массив cvFrame в формате opencv
+        cvFrame = np.ndarray(
+            (heightFrame, widthFrame, 3),
+            buffer = sampleBuff.extract_dup(0, sampleBuff.get_size()), dtype = np.uint8)
+        
+        self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
+        
+        return Gst.FlowReturn.OK
 
