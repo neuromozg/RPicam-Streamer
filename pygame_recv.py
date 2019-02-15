@@ -3,30 +3,23 @@
 
 import time
 import pygame
-import numpy as np
 
 import receiver
 
 IP_ROBOT = '127.0.0.1'
 RTP_PORT = 5000
+FPS = 30  # количество кадров в секунду у окна Pygame
 
 
-def onFrameCallback(frame):
-    frame = np.rot90(frame) #поворачиваем на 90 градусов
-    #надо её еще отразить по вертикали
-    framePygame = pygame.surfarray.make_surface(frame) #преобразуем в картинку формата Pygame
-    screen.blit(framePygame, (0,0)) #отрисовываем картинку на экране
-'''
-def onFrameCallback(buffer):
-    #img = pygame.image.frombuffer(bytearray(buffer.extract_dup(0, buffer.get_size())), 1024, "RGB")
-    print(buffer)
-'''    
+def onFrameCallback(data, width, height):
+    frame = pygame.image.frombuffer(data, (width, height), 'RGB') #преобразуем массив байт в изображение
+    screen.blit(frame, (0,0)) #отрисовываем картинку на экране
+  
 pygame.init()
 pygame.mixer.quit()
 
-screen = pygame.display.set_mode((720, 480))  #Экран программы
-clock = pygame.time.Clock()
-FPS = 30  # This variable will define how many frames we update per second.
+screen = pygame.display.set_mode((640, 480))  #Создаем окно вывода программы
+clock = pygame.time.Clock() #для формирования задержки
 
 recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, (IP_ROBOT, RTP_PORT), onFrameCallback)
 #recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, (IP_ROBOT, RTP_PORT))

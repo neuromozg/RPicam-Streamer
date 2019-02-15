@@ -1,7 +1,7 @@
 import gi
 gi.require_version('Gst','1.0')
 from gi.repository import Gst
-import numpy as np
+#import numpy as np
 
 from common import *
 
@@ -91,7 +91,7 @@ class StreamReceiver(object):
             sink.set_property('drop', True)
             sink.set_property('max-buffers', 5)
             sink.set_property('emit-signals', True)
-            sink.connect('new-sample', self._newSample, sink)
+            sink.connect('new-sample', self._newSample)
         else:
             #sink = Gst.ElementFactory.make('autovideosink')
             sink = Gst.ElementFactory.make('fpsdisplaysink')        
@@ -194,21 +194,23 @@ class StreamReceiver(object):
         print('GST pipeline NULL')
         self.pipeline.set_state(Gst.State.NULL)
 
-    def _newSample(self, sink, data):     # callback функция, вызываемая при каждом приходящем кадре
+    def _newSample(self, sink):     # callback функция, вызываемая при каждом приходящем кадре
         sample = sink.emit('pull-sample')
-        sampleBuff = sample.get_buffer()
+        sampleBuff = sample.get_buffer()  # get the buffer
         
+        data = sampleBuff.extract_dup(0, sampleBuff.get_size()) # extract data stream as string
+               
         caps = sample.get_caps()
 
         widthFrame = caps.get_structure(0).get_value('width')
         heightFrame = caps.get_structure(0).get_value('height')
 
+        ''' 
         #создаем массив cvFrame в формате opencv
-        cvFrame = np.ndarray(
-            (heightFrame, widthFrame, 3),
-            buffer = sampleBuff.extract_dup(0, sampleBuff.get_size()), dtype = np.uint8)
+        cvFrame = np.ndarray((heightFrame, widthFrame, 3), buffer = data, dtype = np.uint8)
         
         self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
-        
+        '''
+        self._onFrameCallback(data, widthFrame, heightFrame) #вызываем обработчик в качестве параметра массив данных , ширина и высота кадра
         return Gst.FlowReturn.OK
 

@@ -139,7 +139,7 @@ class AppSrcStreamer(object):
             appsink.set_property('drop', True)
             appsink.set_property('max-buffers', 5)
             appsink.set_property('emit-signals', True)
-            appsink.connect('new-sample', self._newSample, appsink)
+            appsink.connect('new-sample', self._newSample)
 
         # добавляем все элементы в pipeline
         elemList = [self.appsrc, rtpbin, parser, payloader, udpsink_rtpout,
@@ -197,7 +197,7 @@ class AppSrcStreamer(object):
             print('ERROR: Elements could not be linked')
             sys.exit(1)
 
-    def _newSample(self, sink, data):     # callback функция, вызываемая при каждом приходящем кадре
+    def _newSample(self, sink):     # callback функция, вызываемая при каждом приходящем кадре
         if self._needFrame.is_set(): #если выставлен флаг нужен кадр
             self._needFrame.clear() #сбрасываем флаг
             sample = sink.emit('pull-sample')
