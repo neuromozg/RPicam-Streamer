@@ -11,8 +11,8 @@ RTP_PORT = 5000
 FPS = 30  # количество кадров в секунду у окна Pygame
 
 
-def onFrameCallback(data, width, height):
-    frame = pygame.image.frombuffer(data, (width, height), 'RGB') #преобразуем массив байт в изображение
+def onFrameCallback(data, width, height, formatFrame):
+    frame = pygame.image.frombuffer(data, (width, height), formatFrame) #преобразуем массив байт в изображение
     screen.blit(frame, (0,0)) #отрисовываем картинку на экране
   
 pygame.init()
@@ -21,8 +21,11 @@ pygame.mixer.quit()
 screen = pygame.display.set_mode((640, 480))  #Создаем окно вывода программы
 clock = pygame.time.Clock() #для формирования задержки
 
-recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, (IP_ROBOT, RTP_PORT), onFrameCallback)
-#recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, (IP_ROBOT, RTP_PORT))
+recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, onFrameCallback)
+recv.setHost(IP_ROBOT)
+recv.setPort(RTP_PORT)
+
+#recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG)
 recv.play_pipeline()
 
 running = True

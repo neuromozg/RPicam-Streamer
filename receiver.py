@@ -9,15 +9,16 @@ RTP_PORT = 5000
 HOST = '127.0.0.1'
 
 class StreamReceiver(object):
-    def __init__(self, video = VIDEO_H264, host = (HOST, RTP_PORT), onFrameCallback = None):
-        self._host = host
+    def __init__(self, video = VIDEO_H264, onFrameCallback = None):
+        self._host = HOST
+        self._port = RTP_PORT
         self._onFrameCallback = None
         if (not onFrameCallback is None) and callable(onFrameCallback):
             self._onFrameCallback = onFrameCallback #обработчик события получен кадр
         #инициализация Gstreamer
         Gst.init(None)
         #создаем pipeline
-        self.make_pipeline(video, host)
+        self.make_pipeline(video)
 
         #подключаем обработчик сообщений
         self.bus = self.pipeline.get_bus()
@@ -27,19 +28,19 @@ class StreamReceiver(object):
         #запускаем pipeline
         self.ready_pipeline()
         
-    def make_pipeline(self, video, host):
+    def make_pipeline(self, video):
         # Создание GStreamer pipeline
         self.pipeline = Gst.Pipeline()
 
         #rtpbin
-        rtpbin = Gst.ElementFactory.make('rtpbin')
+        self.rtpbin = Gst.ElementFactory.make('rtpbin')
         #rtpbin.set_property('autoremove', True)
-        rtpbin.set_property('latency', 200)        
-        rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
-        rtpbin.set_property('buffer-mode', 4)
-        #rtpbin.set_property('ntp-time-source', 3)
-        #rtpbin.set_property('ntp-sync', True)
-        #rtpbin.set_property('rtcp-sync-send-time', False)
+        self.rtpbin.set_property('latency', 200)        
+        self.rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
+        self.rtpbin.set_property('buffer-mode', 4)
+        #self.rtpbin.set_property('ntp-time-source', 3)
+        #self.rtpbin.set_property('ntp-sync', True)
+        #self.rtpbin.set_property('rtcp-sync-send-time', False)
         
         #RTP Video
         formatStr = 'H264'
@@ -47,22 +48,26 @@ class StreamReceiver(object):
         if video:
             videoStr = 'JPEG'
             payloadType = 26
-        srcCaps = Gst.Caps.from_string('application/x-rtp, media=video, clock-rate=90000, encoding-name=%s, payload=%d' % (formatStr, payloadType))
         
-        udpsrc_rtpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtpin')
-        udpsrc_rtpin.set_property('port', host[1])
-        udpsrc_rtpin.set_property('caps', srcCaps)
+        self.udpsrc_rtpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtpin')
+        #self.udpsrc_rtpin.set_property('port', RTP_PORT)
+        srcCaps = Gst.Caps.from_string('application/x-rtp, media=video, clock-rate=90000, encoding-name=%s, payload=%d' % (formatStr, payloadType))
+        self.udpsrc_rtpin.set_property('caps', srcCaps)
 
+        self.udpsrc_rtcpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtcpin')
+        #self.udpsrc_rtcpin.set_property('port', RTP_PORT + 1)
         srcCaps = Gst.Caps.from_string('application/x-rtcp')
-        udpsrc_rtcpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtcpin')
-        udpsrc_rtcpin.set_property('port', host[1] + 1)
-        udpsrc_rtcpin.set_property('caps', srcCaps)
+        self.udpsrc_rtcpin.set_property('caps', srcCaps)
 
-        udpsink_rtcpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtcpout')
-        udpsink_rtcpout.set_property('host', host[0])
-        udpsink_rtcpout.set_property('port', host[1] + 5)
-        udpsink_rtcpout.set_property('sync', True)
-        udpsink_rtcpout.set_property('async', False)
+        self.udpsink_rtcpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtcpout')
+        #self.udpsink_rtcpout.set_property('host', HOST)
+        #self.udpsink_rtcpout.set_property('port', RTP_PORT + 5)
+        self.udpsink_rtcpout.set_property('sync', True)
+        self.udpsink_rtcpout.set_property('async', False)
+
+        #Задаем IP адресс и порт
+        self.setHost(self._host)
+        self.setPort(self._port)
 
         depayName = 'rtph264depay'
         decoderName = 'avdec_h264' #хреново работает загрузка ЦП 120% 
@@ -73,48 +78,49 @@ class StreamReceiver(object):
             decoderName = 'jpegdec' #
 
         #depayloader
-        depay = Gst.ElementFactory.make(depayName)
+        self.depay = Gst.ElementFactory.make(depayName)
 
         #decoder
-        decoder = Gst.ElementFactory.make(decoderName)
-        videorate = Gst.ElementFactory.make('videorate')
+        self.decoder = Gst.ElementFactory.make(decoderName)
+        self.videorate = Gst.ElementFactory.make('videorate')
 
         #sink
         if not self._onFrameCallback is None:
-            videoconvert = Gst.ElementFactory.make('videoconvert')
+            self.videoconvert = Gst.ElementFactory.make('videoconvert')
             
-            sink = Gst.ElementFactory.make('appsink')
+            self.sink = Gst.ElementFactory.make('appsink')
             sinkCaps = Gst.caps_from_string('video/x-raw, format=RGB') # формат принимаемых данных
-            sink.set_property('caps', sinkCaps)
-            sink.set_property('sync', False)
-            #appsink.set_property('async', False)
-            sink.set_property('drop', True)
-            sink.set_property('max-buffers', 5)
-            sink.set_property('emit-signals', True)
-            sink.connect('new-sample', self._newSample)
+            self.sink.set_property('caps', sinkCaps)
+            self.sink.set_property('sync', False)
+            #self.sink.set_property('async', False)
+            self.sink.set_property('drop', True)
+            self.sink.set_property('max-buffers', 5)
+            self.sink.set_property('emit-signals', True)
+            self.sink.connect('new-sample', self._newSample)
         else:
             #sink = Gst.ElementFactory.make('autovideosink')
-            sink = Gst.ElementFactory.make('fpsdisplaysink')        
-            sink.set_property('sync', False)
+            self.sink = Gst.ElementFactory.make('fpsdisplaysink')        
+            self.sink.set_property('sync', False)
 
         # добавляем все элементы в pipeline
-        elemList = [rtpbin, depay, decoder, videorate, sink, udpsrc_rtpin,
-                    udpsrc_rtcpin, udpsink_rtcpout]
+        elemList = [self.rtpbin, self.depay, self.decoder, self.videorate, self.sink, self.udpsrc_rtpin,
+                    self.udpsrc_rtcpin, self.udpsink_rtcpout]
+
+        if not self._onFrameCallback is None:
+             elemList.extend([self.videoconvert]) # добавляем videoconvert в pipeline
             
         for elem in elemList:
             self.pipeline.add(elem)
 
         #соединяем элементы
-        ret = depay.link(decoder)
-        ret = ret and decoder.link(videorate)
+        ret = self.depay.link(self.decoder)
+        ret = ret and self.decoder.link(self.videorate)
         
         if not self._onFrameCallback is None:
-            self.pipeline.add(videoconvert) # добавляем videoconvert в pipeline
-            ret = ret and videorate.link(videoconvert)
-            ret = ret and videoconvert.link(sink)           
+            ret = ret and self.videorate.link(self.videoconvert)
+            ret = ret and self.videoconvert.link(self.sink)           
         else:
-            ret = ret and videorate.link(sink)
-        #print(ret)
+            ret = ret and self.videorate.link(self.sink)
         
         #соединяем элементы rtpbin
 
@@ -134,26 +140,36 @@ class StreamReceiver(object):
         #sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtp_sink_0')
         #ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
         #ret = ret and PadLink(udpsrc_rtpin, 'recv_rtp_sink_0')
-        ret = ret and udpsrc_rtpin.link_pads('src', rtpbin, 'recv_rtp_sink_0')
+        ret = ret and self.udpsrc_rtpin.link_pads('src', self.rtpbin, 'recv_rtp_sink_0')
         
         # get an RTCP sinkpad in session 0
         #srcPad = Gst.Element.get_static_pad(udpsrc_rtcpin, 'src')
         #sinkPad = Gst.Element.get_request_pad(rtpbin, 'recv_rtcp_sink_0')
         #ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
         #ret = ret and PadLink(udpsrc_rtcpin, 'recv_rtcp_sink_0')
-        ret = ret and udpsrc_rtcpin.link_pads('src', rtpbin, 'recv_rtcp_sink_0')
+        ret = ret and self.udpsrc_rtcpin.link_pads('src', self.rtpbin, 'recv_rtcp_sink_0')
 
         # get an RTCP srcpad for sending RTCP back to the sender
         #srcPad = Gst.Element.get_request_pad(rtpbin, 'send_rtcp_src_0')
         #sinkPad = Gst.Element.get_static_pad(udpsink_rtcpout, 'sink')
         #ret = ret and (Gst.Pad.link(srcPad, sinkPad) == Gst.PadLinkReturn.OK)
-        ret = ret and rtpbin.link_pads('send_rtcp_src_0', udpsink_rtcpout, 'sink')
+        ret = ret and self.rtpbin.link_pads('send_rtcp_src_0', self.udpsink_rtcpout, 'sink')
         
         if not ret:
             print('ERROR: Elements could not be linked')
             sys.exit(1)
 
-        rtpbin.connect('pad-added', PadAdded, depay) #динамическое подключение rtpbin->depay
+        self.rtpbin.connect('pad-added', PadAdded, self.depay) #динамическое подключение rtpbin->depay
+
+    def setHost(self, host):
+        self._host = host
+        self.udpsink_rtcpout.set_property('host', host)
+
+    def setPort(self, port):
+        self._port = port
+        self.udpsrc_rtpin.set_property('port', port)
+        self.udpsrc_rtcpin.set_property('port', port + 1)
+        self.udpsink_rtcpout.set_property('port', port + 5)
         
     def onMessage(self, bus, message):
         #print('Message: %s' % str(message.type))
@@ -204,13 +220,14 @@ class StreamReceiver(object):
 
         widthFrame = caps.get_structure(0).get_value('width')
         heightFrame = caps.get_structure(0).get_value('height')
-
+        formatFrame = caps.get_structure(0).get_value('format')
+        
         ''' 
         #создаем массив cvFrame в формате opencv
         cvFrame = np.ndarray((heightFrame, widthFrame, 3), buffer = data, dtype = np.uint8)
         
         self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
         '''
-        self._onFrameCallback(data, widthFrame, heightFrame) #вызываем обработчик в качестве параметра массив данных , ширина и высота кадра
+        self._onFrameCallback(data, widthFrame, heightFrame, formatFrame) #вызываем обработчик в качестве параметра массив данных , ширина и высота кадра
         return Gst.FlowReturn.OK
 

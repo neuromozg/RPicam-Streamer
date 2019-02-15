@@ -10,12 +10,14 @@ import threading
 
 from common import *
 
+HOST = '127.0.0.1'
 RTP_PORT = 5000
 
 class AppSrcStreamer(object):
-    def __init__(self, video = VIDEO_MJPEG, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT),
-                 onFrameCallback = None, useOMX = True, scale = 1):        
-        self._host = host
+    def __init__(self, video = VIDEO_MJPEG, resolution = (640, 480), framerate = 30,
+                 onFrameCallback = None, useOMX = False, scale = 1):        
+        self._host = HOST
+        self._port = RTP_PORT
         self._width = resolution[0]
         self._height = resolution[1]
         self._scaleWidth = int(self._width*scale)
@@ -29,7 +31,7 @@ class AppSrcStreamer(object):
         #инициализация Gstreamer
         Gst.init(None)
         #создаем pipeline
-        self._make_pipeline(video, self._width, self._height, framerate, host, useOMX, scale)
+        self._make_pipeline(video, self._width, self._height, framerate, useOMX, scale)
 
         self.bus = self.pipeline.get_bus()
         self.bus.add_signal_watch()
@@ -38,16 +40,16 @@ class AppSrcStreamer(object):
         self.pipeline.set_state(Gst.State.READY)
         print('GST pipeline READY')
         
-    def _make_pipeline(self, video, width, height, framerate, host, useOMX, scale):     
+    def _make_pipeline(self, video, width, height, framerate, useOMX, scale):     
         # Создание GStreamer pipeline
         self.pipeline = Gst.Pipeline()
-        rtpbin = Gst.ElementFactory.make('rtpbin')
-        rtpbin.set_property('latency', 200)
-        rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
-        rtpbin.set_property('buffer-mode', 4)
-        rtpbin.set_property('ntp-time-source', 3) #источник времени clock-time
-        rtpbin.set_property('ntp-sync', True)
-        rtpbin.set_property('rtcp-sync-send-time', False) 
+        self.rtpbin = Gst.ElementFactory.make('rtpbin')
+        self.rtpbin.set_property('latency', 200)
+        self.rtpbin.set_property('drop-on-latency', True) #отбрасывать устаревшие кадры
+        self.rtpbin.set_property('buffer-mode', 4)
+        self.rtpbin.set_property('ntp-time-source', 3) #источник времени clock-time
+        self.rtpbin.set_property('ntp-sync', True)
+        self.rtpbin.set_property('rtcp-sync-send-time', False) 
                 
         #настраиваем appsrc
         self.appsrc = Gst.ElementFactory.make('appsrc')
@@ -70,7 +72,7 @@ class AppSrcStreamer(object):
         else:
             parserName = 'jpegparse'
             
-        parser = Gst.ElementFactory.make(parserName)
+        self.parser = Gst.ElementFactory.make(parserName)
         
         if video == VIDEO_H264:
             payloaderName = 'rtph264pay'
@@ -80,32 +82,35 @@ class AppSrcStreamer(object):
             payloaderName = 'rtpjpegpay'
             #payloadType = 26
             
-        payloader = Gst.ElementFactory.make(payloaderName)
+        self.payloader = Gst.ElementFactory.make(payloaderName)
         #payloader.set_property('pt', payloadType)
 
         #For RTP Video
-        udpsink_rtpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtpout')
-        udpsink_rtpout.set_property('host', host[0])
-        udpsink_rtpout.set_property('port', host[1])
-        udpsink_rtpout.set_property('sync', True)
-        udpsink_rtpout.set_property('async', False)
+        self.udpsink_rtpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtpout')
+        #self.udpsink_rtpout.set_property('host', self._host)
+        #self.udpsink_rtpout.set_property('port', self._port)
+        self.udpsink_rtpout.set_property('sync', True)
+        self.udpsink_rtpout.set_property('async', False)
 
-        udpsink_rtcpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtcpout')
-        udpsink_rtcpout.set_property('host', host[0])
-        udpsink_rtcpout.set_property('port', host[1] + 1)
-        udpsink_rtcpout.set_property('sync', False)
-        udpsink_rtcpout.set_property('async', False)
+        self.udpsink_rtcpout = Gst.ElementFactory.make('udpsink', 'udpsink_rtcpout')
+        #self.udpsink_rtcpout.set_property('host', self._host)
+        #self.udpsink_rtcpout.set_property('port', self._port + 1)
+        self.udpsink_rtcpout.set_property('sync', False)
+        self.udpsink_rtcpout.set_property('async', False)
 
+        self.udpsrc_rtcpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtcpin')
         srcCaps = Gst.Caps.from_string('application/x-rtcp')
-        udpsrc_rtcpin = Gst.ElementFactory.make('udpsrc', 'udpsrc_rtcpin')
-        udpsrc_rtcpin.set_property('port', host[1] + 5)
-        udpsrc_rtcpin.set_property('caps', srcCaps)
-        
+        #self.udpsrc_rtcpin.set_property('port', self._port + 5)
+        self.udpsrc_rtcpin.set_property('caps', srcCaps)
+
+        #Задаем IP адресс и порт
+        self.setHost(self._host)
+        self.setPort(self._port)
 
         if not self._onFrameCallback is None:
-            tee = Gst.ElementFactory.make('tee')
-            rtpQueue = Gst.ElementFactory.make('queue', 'rtp_queue')
-            frameQueue = Gst.ElementFactory.make('queue', 'frame_queue')
+            self.tee = Gst.ElementFactory.make('tee')
+            self.rtpQueue = Gst.ElementFactory.make('queue', 'rtp_queue')
+            self.frameQueue = Gst.ElementFactory.make('queue', 'frame_queue')
         
             if video == VIDEO_H264: 
                 if useOMX:
@@ -119,83 +124,95 @@ class AppSrcStreamer(object):
                 else:
                     decoderName = 'avdec_mjpeg' #
                     #decoder = Gst.ElementFactory.make('jpegdec') #
-            decoder = Gst.ElementFactory.make(decoderName)
+            self.decoder = Gst.ElementFactory.make(decoderName)
             
-            videoconvert = Gst.ElementFactory.make('videoconvert')
+            self.videoconvert = Gst.ElementFactory.make('videoconvert')
             
             if scale != 1:
-                videoscale = Gst.ElementFactory.make('videoscale')
-                videoscaleFilter = Gst.ElementFactory.make('capsfilter', 'scalefilter')
+                self.videoscale = Gst.ElementFactory.make('videoscale')
+                self.videoscaleFilter = Gst.ElementFactory.make('capsfilter', 'scalefilter')
                 videoscaleCaps = Gst.caps_from_string('video/x-raw, width=%d, height=%d' % (self._scaleWidth, self._scaleHeight)) # формат данных после изменения размера
-                videoscaleFilter.set_property('caps', videoscaleCaps)       
+                self.videoscaleFilter.set_property('caps', videoscaleCaps)       
         
             ### создаем свой sink для перевода из GST в CV
-            appsink = Gst.ElementFactory.make('appsink')
+            self.appsink = Gst.ElementFactory.make('appsink')
 
             cvCaps = Gst.caps_from_string('video/x-raw, format=BGR') # формат принимаемых данных
-            appsink.set_property('caps', cvCaps)
-            appsink.set_property('sync', False)
+            self.appsink.set_property('caps', cvCaps)
+            self.appsink.set_property('sync', False)
             #appsink.set_property('async', False)
-            appsink.set_property('drop', True)
-            appsink.set_property('max-buffers', 5)
-            appsink.set_property('emit-signals', True)
-            appsink.connect('new-sample', self._newSample)
+            self.appsink.set_property('drop', True)
+            self.appsink.set_property('max-buffers', 5)
+            self.appsink.set_property('emit-signals', True)
+            self.appsink.connect('new-sample', self._newSample)
 
         # добавляем все элементы в pipeline
-        elemList = [self.appsrc, rtpbin, parser, payloader, udpsink_rtpout,
-                    udpsink_rtcpout, udpsrc_rtcpin]
+        elemList = [self.appsrc, self.rtpbin, self.parser,self. payloader, self.udpsink_rtpout,
+                    self.udpsink_rtcpout, self.udpsrc_rtcpin]
+        
         if not self._onFrameCallback is None:
-            elemList.extend([tee, rtpQueue, frameQueue, decoder, videoconvert, appsink])
+            elemList.extend([self.tee, self.rtpQueue, self.frameQueue, self.decoder, self.videoconvert, self.appsink])
             if scale != 1:
-                elemList.extend([videoscale, videoscaleFilter])
+                elemList.extend([self.videoscale, self.videoscaleFilter])
             
         for elem in elemList:
             self.pipeline.add(elem)
 
         #соединяем элементы
-        ret = self.appsrc.link(parser)
+        ret = self.appsrc.link(self.parser)
 
         #соединяем элементы rtpbin
-        ret = ret and payloader.link_pads('src', rtpbin, 'send_rtp_sink_0')
-        ret = ret and rtpbin.link_pads('send_rtp_src_0', udpsink_rtpout, 'sink')
-        ret = ret and rtpbin.link_pads('send_rtcp_src_0', udpsink_rtcpout, 'sink')
-        ret = ret and udpsrc_rtcpin.link_pads('src', rtpbin, 'recv_rtcp_sink_0')
+        ret = ret and self.payloader.link_pads('src', self.rtpbin, 'send_rtp_sink_0')
+        ret = ret and self.rtpbin.link_pads('send_rtp_src_0', self.udpsink_rtpout, 'sink')
+        ret = ret and self.rtpbin.link_pads('send_rtcp_src_0', self.udpsink_rtcpout, 'sink')
+        ret = ret and self.udpsrc_rtcpin.link_pads('src', self.rtpbin, 'recv_rtcp_sink_0')
 
         if self._onFrameCallback is None: #трансляция без onFrameCallback, т.е. создаем одну ветку
-            ret = ret and parser.link(payloader)
+            ret = ret and self.parser.link(self.payloader)
             
         else: #трансляция с передачей кадров в onFrameCallback, создаем две ветки
-            ret = ret and parser.link(tee)
+            ret = ret and self.parser.link(self.tee)
             
             #1-я ветка RTP
-            ret = ret and rtpQueue.link(payloader)
+            ret = ret and self.rtpQueue.link(self.payloader)
 
             #2-я ветка onFrame
-            ret = ret and frameQueue.link(decoder)
+            ret = ret and self.frameQueue.link(self.decoder)
             if scale != 1:        
-                ret = ret and decoder.link(videoscale)
-                ret = ret and videoscale.link(videoscaleFilter)
-                ret = ret and videoscaleFilter.link(videoconvert)
+                ret = ret and self.decoder.link(self.videoscale)
+                ret = ret and self.videoscale.link(self.videoscaleFilter)
+                ret = ret and self.videoscaleFilter.link(self.videoconvert)
             else:
-                ret = ret and decoder.link(videoconvert)
+                ret = ret and self.decoder.link(self.videoconvert)
 
-            ret = ret and videoconvert.link(appsink)
+            ret = ret and self.videoconvert.link(self.appsink)
             
             # подключаем tee к rtpQueue
-            teeSrcPadTemplate = tee.get_pad_template('src_%u')
+            teeSrcPadTemplate = self.tee.get_pad_template('src_%u')
         
-            rtpTeePad = tee.request_pad(teeSrcPadTemplate, None, None)
+            rtpTeePad = self.tee.request_pad(teeSrcPadTemplate, None, None)
             rtpQueuePad = rtpQueue.get_static_pad('sink')
             ret = ret and (rtpTeePad.link(rtpQueuePad) == Gst.PadLinkReturn.OK)
 
             # подключаем tee к frameQueue
-            frameTeePad = tee.request_pad(teeSrcPadTemplate, None, None)
+            frameTeePad = self.tee.request_pad(teeSrcPadTemplate, None, None)
             frameQueuePad = frameQueue.get_static_pad('sink')        
             ret = ret and (frameTeePad.link(frameQueuePad) == Gst.PadLinkReturn.OK)
 
         if not ret:
             print('ERROR: Elements could not be linked')
             sys.exit(1)
+
+    def setHost(self, host):
+        self._host = host
+        self.udpsink_rtpout.set_property('host', host)
+        self.udpsink_rtcpout.set_property('host', host)
+
+    def setPort(self, port):
+        self._port = port
+        self.udpsink_rtpout.set_property('port', port)
+        self.udpsink_rtcpout.set_property('port', port + 1)
+        self.udpsrc_rtcpin.set_property('port', port + 5)
 
     def _newSample(self, sink):     # callback функция, вызываемая при каждом приходящем кадре
         if self._needFrame.is_set(): #если выставлен флаг нужен кадр
@@ -229,7 +246,7 @@ class AppSrcStreamer(object):
     def play_pipeline(self):
         self.pipeline.set_state(Gst.State.PLAYING)
         print('GST pipeline PLAYING')
-        print('Streaming RTP on %s:%d' % (self._host[0], self._host[1]))
+        print('Streaming RTP on %s:%d' % (self._host, self._port))
 
     def stop_pipeline(self):
         self.pause_pipeline()
@@ -262,7 +279,7 @@ class AppSrcStreamer(object):
         return False
 
 class RPiCamStreamer(object):
-    def __init__(self, video = VIDEO_MJPEG, resolution = (640, 480), framerate = 30, host = ('localhost', RTP_PORT),
+    def __init__(self, video = VIDEO_MJPEG, resolution = (640, 480), framerate = 30,
                  onFrameCallback = None, scale = 1):
         self._videoFormat = 'h264'
         self._quality = 20
@@ -275,7 +292,7 @@ class RPiCamStreamer(object):
         self.camera.resolution = resolution
         self.camera.framerate = framerate
         self._stream = AppSrcStreamer(video, resolution,
-            framerate, host, onFrameCallback, True, scale)
+            framerate, onFrameCallback, True, scale)
         
     def init(self):
         pass
@@ -285,7 +302,7 @@ class RPiCamStreamer(object):
               % (self._videoFormat, self.camera.resolution[0], self.camera.resolution[1],
                  self.camera.framerate, self._bitrate, self._quality))
         self._stream.play_pipeline() #запускаем RTP трансляцию
-        #запускаем захват пока с камеры
+        #запускаем захват видеопотока с камеры
         self.camera.start_recording(self._stream, self._videoFormat, bitrate=self._bitrate, quality=self._quality)
 
     def stop(self):
@@ -305,3 +322,9 @@ class RPiCamStreamer(object):
         
     def setRotation(self, rotation):
         self.camera.rotation = rotation
+        
+    def setHost(self, host):
+        self._stream.setHost(host)
+
+    def setPort(self, port):
+        self._stream.setPort(port)
