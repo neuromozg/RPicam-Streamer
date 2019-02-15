@@ -220,7 +220,7 @@ class StreamReceiver(object):
 
         widthFrame = caps.get_structure(0).get_value('width')
         heightFrame = caps.get_structure(0).get_value('height')
-        formatFrame = caps.get_structure(0).get_value('format')
+        #formatFrame = caps.get_structure(0).get_value('format')
         
         ''' 
         #создаем массив cvFrame в формате opencv
@@ -228,6 +228,8 @@ class StreamReceiver(object):
         
         self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
         '''
-        self._onFrameCallback(data, widthFrame, heightFrame, formatFrame) #вызываем обработчик в качестве параметра массив данных , ширина и высота кадра
+        #вызываем обработчик в качестве параметра передаем массив данных, ширина и высота кадра
+        #формат цвета RGB
+        self._onFrameCallback(data, widthFrame, heightFrame) 
         return Gst.FlowReturn.OK
 
