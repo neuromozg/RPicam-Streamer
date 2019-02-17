@@ -7,6 +7,7 @@ import numpy as np
 import sys
 import psutil
 import threading
+import logging
 
 from common import *
 
@@ -37,8 +38,7 @@ class AppSrcStreamer(object):
         self.bus.add_signal_watch()
         self.bus.connect('message', self._onMessage)
         
-        self.pipeline.set_state(Gst.State.READY)
-        print('GST pipeline READY')
+        self.ready_pipeline()
         
     def _make_pipeline(self, video, width, height, framerate, useOMX, scale):     
         # Создание GStreamer pipeline
@@ -233,20 +233,20 @@ class AppSrcStreamer(object):
         #print('Message: %s' % str(message.type))
         t = message.type
         if t == Gst.MessageType.EOS:
-            print('Received EOS-Signal')
+            logging.info('Received EOS-Signal')
             self.stop_pipeline()
         elif t == Gst.MessageType.ERROR:
-            print('Received Error-Signal')
+            logging.error('Received Error-Signal')
             error, debug = message.parse_error()
-            print('Error-Details: #%u: %s' % (error.code, debug))
+            logging.error('Error-Details: #%u: %s', error.code, debug)
             self.null_pipeline()
         #else:
         #    print('Message: %s' % str(t))
 
     def play_pipeline(self):
         self.pipeline.set_state(Gst.State.PLAYING)
-        print('GST pipeline PLAYING')
-        print('Streaming RTP on %s:%d' % (self._host, self._port))
+        logging.info('GST pipeline PLAYING')
+        logging.info('Streaming RTP on %s:%d', self._host, self._port)
 
     def stop_pipeline(self):
         self.pause_pipeline()
@@ -254,15 +254,15 @@ class AppSrcStreamer(object):
         
     def ready_pipeline(self):
         self.pipeline.set_state(Gst.State.READY)
-        print('GST pipeline READY')
+        logging.info('GST pipeline READY')
 
     def pause_pipeline(self):
         self.pipeline.set_state(Gst.State.PAUSED)
-        print('GST pipeline PAUSED')
+        logging.info('GST pipeline PAUSED')
         
     def null_pipeline(self):
-        print('GST pipeline NULL')
         self.pipeline.set_state(Gst.State.NULL)
+        logging.info('GST pipeline NULL')
 
     def write(self, s):
         gstBuff = Gst.Buffer.new_wrapped(s)
