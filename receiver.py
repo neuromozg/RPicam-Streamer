@@ -1,7 +1,7 @@
 import gi
 gi.require_version('Gst','1.0')
 from gi.repository import Gst
-#import numpy as np
+import logging
 
 from common import *
 
@@ -23,7 +23,7 @@ class StreamReceiver(object):
         #подключаем обработчик сообщений
         self.bus = self.pipeline.get_bus()
         self.bus.add_signal_watch()
-        self.bus.connect('message', self.onMessage)
+        self.bus.connect('message', self._onMessage)
 
         #запускаем pipeline
         self.ready_pipeline()
@@ -110,6 +110,9 @@ class StreamReceiver(object):
              elemList.extend([self.videoconvert]) # добавляем videoconvert в pipeline
             
         for elem in elemList:
+            if elem is None:
+                logging.critical('GST elements could not be null')
+                sys.exit(1)
             self.pipeline.add(elem)
 
         #соединяем элементы
@@ -156,7 +159,7 @@ class StreamReceiver(object):
         ret = ret and self.rtpbin.link_pads('send_rtcp_src_0', self.udpsink_rtcpout, 'sink')
         
         if not ret:
-            print('ERROR: Elements could not be linked')
+            logging.critical('GST elements could not be linked')
             sys.exit(1)
 
         self.rtpbin.connect('pad-added', PadAdded, self.depay) #динамическое подключение rtpbin->depay
@@ -171,16 +174,15 @@ class StreamReceiver(object):
         self.udpsrc_rtcpin.set_property('port', port + 1)
         self.udpsink_rtcpout.set_property('port', port + 5)
         
-    def onMessage(self, bus, message):
+    def _onMessage(self, bus, message):
         #print('Message: %s' % str(message.type))
         t = message.type
         if t == Gst.MessageType.EOS:
-            print('Received EOS-Signal')
+            logging.info('Received EOS-Signal')
             self.stop_pipeline()
         elif t == Gst.MessageType.ERROR:
-            print('Received Error-Signal')
             error, debug = message.parse_error()
-            print('Error-Details: #%u: %s' % (error.code, debug))
+            logging.error('Received Error-Signal #%u: %s', error.code, debug)
             self.null_pipeline()
         #else:
         #    print('Message: %s' % str(t))
@@ -192,7 +194,7 @@ class StreamReceiver(object):
     def play_pipeline(self):
         self.pipeline.set_state(Gst.State.PLAYING)
         #self.getStatePipeline()
-        print('GST pipeline PLAYING')
+        logging.info('GST pipeline PLAYING')
 
     def stop_pipeline(self):
         self.pause_pipeline()
@@ -200,15 +202,15 @@ class StreamReceiver(object):
 
     def ready_pipeline(self):
         self.pipeline.set_state(Gst.State.READY)
-        print('GST pipeline READY')
+        logging.info('GST pipeline READY')
 
     def pause_pipeline(self):
         self.pipeline.set_state(Gst.State.PAUSED)
-        print('GST pipeline PAUSED')
+        logging.info('GST pipeline PAUSED')
         
     def null_pipeline(self):
-        print('GST pipeline NULL')
         self.pipeline.set_state(Gst.State.NULL)
+        logging.info('GST pipeline NULL')
 
     def _newSample(self, sink):     # callback функция, вызываемая при каждом приходящем кадре
         sample = sink.emit('pull-sample')

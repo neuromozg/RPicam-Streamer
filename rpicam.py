@@ -4,8 +4,6 @@ from gi.repository import Gst
 
 import picamera
 import numpy as np
-import sys
-import psutil
 import threading
 import logging
 
