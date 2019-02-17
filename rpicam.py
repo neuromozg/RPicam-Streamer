@@ -156,6 +156,9 @@ class AppSrcStreamer(object):
                 elemList.extend([self.videoscale, self.videoscaleFilter])
             
         for elem in elemList:
+            if elem is None:
+                logging.critical('GST elements could not be null')
+                sys.exit(1)
             self.pipeline.add(elem)
 
         #соединяем элементы
@@ -200,7 +203,7 @@ class AppSrcStreamer(object):
             ret = ret and (frameTeePad.link(frameQueuePad) == Gst.PadLinkReturn.OK)
 
         if not ret:
-            print('ERROR: Elements could not be linked')
+            logging.critical('GST elements could not be linked')
             sys.exit(1)
 
     def setHost(self, host):
@@ -236,9 +239,8 @@ class AppSrcStreamer(object):
             logging.info('Received EOS-Signal')
             self.stop_pipeline()
         elif t == Gst.MessageType.ERROR:
-            logging.error('Received Error-Signal')
             error, debug = message.parse_error()
-            logging.error('Error-Details: #%u: %s', error.code, debug)
+            logging.error('Received Error-Signal #%u: %s', error.code, debug)
             self.null_pipeline()
         #else:
         #    print('Message: %s' % str(t))
@@ -291,6 +293,7 @@ class RPiCamStreamer(object):
         self.camera = picamera.PiCamera()
         self.camera.resolution = resolution
         self.camera.framerate = framerate
+        self.camera.led = False #выключаем светодиод на камере
         self._stream = AppSrcStreamer(video, resolution,
             framerate, onFrameCallback, True, scale)
         
@@ -298,20 +301,24 @@ class RPiCamStreamer(object):
         pass
 
     def start(self):
-        print('Start RPi camera recording: %s:%dx%d, framerate=%d, bitrate=%d, quality=%d'
-              % (self._videoFormat, self.camera.resolution[0], self.camera.resolution[1],
-                 self.camera.framerate, self._bitrate, self._quality))
+        logging.info('Start RPi camera recording: %s:%dx%d, framerate=%d, bitrate=%d, quality=%d', 
+                self._videoFormat, self.camera.resolution[0], self.camera.resolution[1],
+                self.camera.framerate, self._bitrate, self._quality)
         self._stream.play_pipeline() #запускаем RTP трансляцию
         #запускаем захват видеопотока с камеры
         self.camera.start_recording(self._stream, self._videoFormat, bitrate=self._bitrate, quality=self._quality)
+        self.camera.led = True #включаем светодиод на камере
 
     def stop(self):
-        print('Stop RPi camera recording')
-        self.camera.stop_recording()
+        if self.camera.recording:
+            self.camera.stop_recording()
+            self.camera.led = False #выключаем светодиод на камере
+            logging.info('Stop RPi camera recording')
 
     def close(self):
         self._stream.null_pipeline() #закрываем трансляцию
-        self.camera.close()
+        if not self.camera.closed:
+            self.camera.close()
 
     def frameRequest(self): #выставляем флаг запрос кадра, возвращает True, если флаг выставлен
         return self._stream.frameRequest()
