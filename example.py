@@ -65,13 +65,12 @@ class FrameHandlerThread(threading.Thread):
             self._newFrameEvent.set() #задали событие
             return True
         return False
-
-                
+         
 def onFrameCallback(data, width, height): #обработчик события 'получен кадр'
     #создаем массив cvFrame в формате opencv
     rgbFrame = np.ndarray((height, width, 3), buffer = data, dtype = np.uint8)
     # Converts to BGR format for OpenCV
-    bgrFrame = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    bgrFrame = cv2.cvtColor(rgbFrame, cv2.COLOR_RGB2BGR)
     frameHandlerThread.setFrame(bgrFrame) #задали новый кадр
 
 print('Start program')
