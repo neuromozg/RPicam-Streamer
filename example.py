@@ -57,7 +57,7 @@ class FrameHandlerThread(threading.Thread):
         if not self._newFrameEvent.is_set(): #если кадр не обрабатывается
             self._frame = None
             self._newFrameEvent.set() 
-        self.join()
+        self.join() #ждем завершения работы потока
 
     def setFrame(self, frame): #задание нового кадра для обработки
         if not self._newFrameEvent.is_set(): #если обработчик готов принять новый кадр
@@ -67,9 +67,12 @@ class FrameHandlerThread(threading.Thread):
         return False
 
                 
-def onFrameCallback(frame): #обработчик события 'получен кадр'
-    #print('New frame')
-    frameHandlerThread.setFrame(frame) #задали новый кадр
+def onFrameCallback(data, width, height): #обработчик события 'получен кадр'
+    #создаем массив cvFrame в формате opencv
+    rgbFrame = np.ndarray((height, width, 3), buffer = data, dtype = np.uint8)
+    # Converts to BGR format for OpenCV
+    bgrFrame = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    frameHandlerThread.setFrame(bgrFrame) #задали новый кадр
 
 print('Start program')
 
@@ -79,8 +82,11 @@ print('Raspberry Pi camera found')
 
 print('OpenCV version: %s' % cv2.__version__)
 
-#создаем трансляцию с камеры (тип потока h264/mjpeg, разрешение, частота кадров, хост куда шлем, функция обрабтчик кадров)
-rpiCamStreamer = rpicam.RPiCamStreamer(FORMAT, RESOLUTION, FRAMERATE, (IP, RTP_PORT), onFrameCallback)
+#создаем трансляцию с камеры (тип потока h264/mjpeg, разрешение, частота кадров, функция обрабтчик кадров)
+rpiCamStreamer = rpicam.RPiCamStreamer(FORMAT, RESOLUTION, FRAMERATE, onFrameCallback)
+#задаем порт и хост куда шлем видео
+rpiCamStreamer.setPort(RTP_PORT)
+rpiCamStreamer.setHost(IP)
 #robotCamStreamer.setFlip(False, True) #отражаем кадр (вертикальное отражение, горизонтальное отражение)
 rpiCamStreamer.setRotation(180) #поворачиваем кадр на 180 град, доступные значения 90, 180, 270
 rpiCamStreamer.start() #запускаем трансляцию

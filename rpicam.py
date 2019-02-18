@@ -3,7 +3,6 @@ gi.require_version('Gst','1.0')
 from gi.repository import Gst
 
 import picamera
-import numpy as np
 import threading
 import logging
 
@@ -56,8 +55,6 @@ class AppSrcStreamer(object):
             videoStr = 'video/x-h264'
         elif video == VIDEO_MJPEG:
             videoStr = 'image/jpeg'
-        elif video == VIDEO_RAW:
-            videoStr = 'video/x-raw,format=BGR'
         capstring = videoStr + ',width=' + str(width) \
             + ',height=' + str(height) + ',framerate=' \
             + str(framerate)+'/1'   
@@ -135,7 +132,7 @@ class AppSrcStreamer(object):
             ### создаем свой sink для перевода из GST в CV
             self.appsink = Gst.ElementFactory.make('appsink')
 
-            cvCaps = Gst.caps_from_string('video/x-raw, format=BGR') # формат принимаемых данных
+            cvCaps = Gst.caps_from_string('video/x-raw, format=RGB') # формат принимаемых данных
             self.appsink.set_property('caps', cvCaps)
             self.appsink.set_property('sync', False)
             #appsink.set_property('async', False)
@@ -221,12 +218,11 @@ class AppSrcStreamer(object):
             sample = sink.emit('pull-sample')
             sampleBuff = sample.get_buffer()
 
-            #создаем массив cvFrame в формате opencv
-            cvFrame = np.ndarray(
-                (self._scaleHeight, self._scaleWidth, 3),
-                buffer = sampleBuff.extract_dup(0, sampleBuff.get_size()), dtype = np.uint8)
-            
-            self._onFrameCallback(cvFrame) #вызываем обработчик в качестве параметра передаем cv2 кадр
+            data = sampleBuff.extract_dup(0, sampleBuff.get_size()) # extract data stream as string
+                        
+            #вызываем обработчик в качестве параметра передаем массив данных, ширина и высота кадра
+            #формат цвета RGB
+            self._onFrameCallback(data, self._scaleWidth, self._scaleHeight) 
 
         return Gst.FlowReturn.OK
             
