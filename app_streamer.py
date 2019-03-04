@@ -212,12 +212,12 @@ class AppSrcStreamer(object):
             teeSrcPadTemplate = self.tee.get_pad_template('src_%u')
         
             rtpTeePad = self.tee.request_pad(teeSrcPadTemplate, None, None)
-            rtpQueuePad = rtpQueue.get_static_pad('sink')
+            rtpQueuePad = self.rtpQueue.get_static_pad('sink')
             ret = ret and (rtpTeePad.link(rtpQueuePad) == Gst.PadLinkReturn.OK)
 
             # подключаем tee к frameQueue
             frameTeePad = self.tee.request_pad(teeSrcPadTemplate, None, None)
-            frameQueuePad = frameQueue.get_static_pad('sink')        
+            frameQueuePad = self.frameQueue.get_static_pad('sink')        
             ret = ret and (frameTeePad.link(frameQueuePad) == Gst.PadLinkReturn.OK)
 
         if not ret:
