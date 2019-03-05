@@ -10,7 +10,9 @@ RTP_PORT = 5000
 def onFrameCallback(frame):
     print(frame)
 
-recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, (IP_ROBOT, RTP_PORT), onFrameCallback)
+recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, onFrameCallback)
+recv.setPort(RTP_PORT)
+recv.setHost(IP_ROBOT)
 recv.play_pipeline()
 
 #recvCV = receiver.StreamReceiver(receiver.VIDEO_MJPEG, (IP_ROBOT, RTP_PORT+50))

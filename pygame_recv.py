@@ -26,7 +26,7 @@ clock = pygame.time.Clock() #для формирования задержки
 recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, onFrameCallback)
 #recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG)
 #задаем IP адрес и порт
-recv.setHost(IP)
+recv.setHost(IP_ROBOT)
 recv.setPort(RTP_PORT)
 
 #запускаем прием видепотока
