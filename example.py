@@ -10,14 +10,14 @@ import threading
 import rpicam
 
 #настройки видеопотока
-FORMAT = rpicam.VIDEO_H264 #поток H264
-#FORMAT = rpicam.VIDEO_MJPEG #поток MJPEG
+#FORMAT = rpicam.VIDEO_H264 #поток H264
+FORMAT = rpicam.VIDEO_MJPEG #поток MJPEG
 WIDTH, HEIGHT = 640, 360
 RESOLUTION = (WIDTH, HEIGHT)
 FRAMERATE = 30
 
 #сетевые параметры
-IP = '173.1.0.95' #IP адрес куда отправляем видео
+IP = '10.1.0.95' #IP адрес куда отправляем видео
 RTP_PORT = 5000 #порт отправки RTP видео
 
 #поток для обработки кадров
@@ -32,6 +32,7 @@ class FrameHandlerThread(threading.Thread):
         self._frameCount = 0
         self._stopped = threading.Event() #событие для остановки потока
         self._newFrameEvent = threading.Event() #событие для контроля поступления кадров
+        self.sensivity = 60 #чувствительность алгоритма
         
     def run(self):
         print('Frame handler started')
@@ -41,11 +42,11 @@ class FrameHandlerThread(threading.Thread):
                 if not (self._frame is None): #если получен кадр
                 
                     #--------------------------------------
-                    time.sleep(2) #имитируем обработку кадра
-                    imgFleName = 'frame%d.jpg' % self._frameCount
-                    #cv2.imwrite(imgFleName, self._frame) #сохраняем полученный кадр в файл
-                    print('Write image file: %s' % imgFleName)
-                    self._frameCount += 1
+                    #ищем линнию
+                    lineFound, direction = self.lineDetect(self._frame)
+                    if lineFound:
+                        print('direction: %.2f' % direction)
+                    
                     #--------------------------------------
                     
                 self._newFrameEvent.clear() #сбрасываем событие
@@ -65,6 +66,50 @@ class FrameHandlerThread(threading.Thread):
             self._newFrameEvent.set() #задали событие
             return True
         return False
+    
+    def lineDetect(self, frame): #следование по линии
+
+        height, width = frame.shape[:2]
+        
+        # Crop the image
+        #crop_img = frame[60:120, 0:160] #обрезаем по вертикали
+ 
+        # Convert to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+     
+        # Gaussian blur
+        blur = cv2.GaussianBlur(gray, (5,5), 0)
+     
+        # Color thresholding
+        ret, thresh = cv2.threshold(blur, self.sensivity, 255, cv2.THRESH_BINARY_INV)
+
+        # Erode and dilate to remove accidental line detections
+        mask = cv2.erode(thresh, None, iterations=2)
+        mask = cv2.dilate(mask, None, iterations=2)
+     
+        # Find the contours of the frame
+        contours, _ = cv2.findContours(mask.copy(), 1, cv2.CHAIN_APPROX_NONE)
+
+        direction = 0.0
+        lineFound = False
+        
+        # Find the biggest contour (if detected)
+        if len(contours) > 0:
+            c = max(contours, key=cv2.contourArea)
+            M = cv2.moments(c)
+     
+            cx = int(M['m10']/M['m00'])
+            cy = int(M['m01']/M['m00'])
+     
+            cv2.line(frame, (cx,0), (cx,720), (255,0,0), 1)
+            cv2.line(frame, (0,cy), (1280,cy), (255,0,0), 1)
+     
+            cv2.drawContours(frame, contours, -1, (0,255,0), 1)
+     
+            direction = cx/(width/2)-1  # преобразуем координаты от 0 до ширина кадра -> от -1 до 1
+            lineFound = True
+            
+        return lineFound, direction
          
 def onFrameCallback(data, width, height): #обработчик события 'получен кадр'
     #создаем массив cvFrame в формате opencv
