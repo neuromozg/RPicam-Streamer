@@ -1,5 +1,5 @@
-HOST=192.168.42.162
-#HOST=173.1.0.86
+#HOST=192.168.42.162
+HOST=10.1.0.78
 #HOST=127.0.0.1
 RTPBIN_PARAMS="drop-on-latency=true buffer-mode=1"
 
