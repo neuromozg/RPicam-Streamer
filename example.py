@@ -98,16 +98,17 @@ class FrameHandlerThread(threading.Thread):
             c = max(contours, key=cv2.contourArea)
             M = cv2.moments(c)
      
-            cx = int(M['m10']/M['m00'])
-            cy = int(M['m01']/M['m00'])
+            if M['m00'] != 0: #для исключения деления на 0
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01']/M['m00'])
      
-            cv2.line(frame, (cx,0), (cx,720), (255,0,0), 1)
-            cv2.line(frame, (0,cy), (1280,cy), (255,0,0), 1)
+                cv2.line(frame, (cx,0), (cx,720), (255,0,0), 1)
+                cv2.line(frame, (0,cy), (1280,cy), (255,0,0), 1)
      
-            cv2.drawContours(frame, contours, -1, (0,255,0), 1)
+                cv2.drawContours(frame, contours, -1, (0,255,0), 1)
      
-            direction = cx/(width/2)-1  # преобразуем координаты от 0 до ширина кадра -> от -1 до 1
-            lineFound = True
+                direction = cx/(width/2)-1  # преобразуем координаты от 0 до ширина кадра -> от -1 до 1
+                lineFound = True
             
         return lineFound, direction
          

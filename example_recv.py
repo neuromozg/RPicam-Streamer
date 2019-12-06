@@ -4,11 +4,12 @@
 import time
 import receiver
 
-IP_ROBOT = '127.0.0.1'
+#IP адрес и порт источника видео 
+IP_ROBOT = '10.1.0.78'
 RTP_PORT = 5000
 
-def onFrameCallback(frame):
-    print(frame)
+def onFrameCallback(frame, width, height):
+    print('Receive frame %dx%d %d bytes' % (width, height, len(frame)))
 
 recv = receiver.StreamReceiver(receiver.VIDEO_MJPEG, onFrameCallback)
 recv.setPort(RTP_PORT)

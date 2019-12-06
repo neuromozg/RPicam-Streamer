@@ -6,7 +6,9 @@ import pygame
 
 import receiver
 
-IP_ROBOT = '127.0.0.1'
+#IP адрес и порт источника видео 
+#IP_ROBOT = '127.0.0.1'
+IP_ROBOT = '10.1.0.78'
 RTP_PORT = 5000
 FPS = 30  # количество кадров в секунду у окна Pygame
 
@@ -17,7 +19,7 @@ def onFrameCallback(data, width, height):
     screen.blit(frame, (0,0)) #отрисовываем картинку на экране
   
 pygame.init()
-pygame.mixer.quit()
+pygame.mixer.quit() #в ОС Linux обязательно, иначе приложение будет "есть" 100% CPU
 
 screen = pygame.display.set_mode((640, 480))  #Создаем окно вывода программы
 clock = pygame.time.Clock() #для формирования задержки

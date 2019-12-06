@@ -1,7 +1,7 @@
 #HOST=192.168.42.162
 HOST=10.1.0.78
 #HOST=127.0.0.1
-RTPBIN_PARAMS="drop-on-latency=true buffer-mode=1"
+RTPBIN_PARAMS="drop-on-latency=true buffer-mode=4"
 
 gst-launch-1.0 -v rtpbin name=rtpbin $RTPBIN_PARAMS                                          \
     udpsrc caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)JPEG,payload=(int)26" \
